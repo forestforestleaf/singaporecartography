@@ -409,7 +409,7 @@ function initApp(){
   });
 
   // Planning area boundaries — thin black, added FIRST so roads render on top
-  var boundaryLayer=L.geoJSON(SG_BOUNDARIES,{
+  boundaryLayer=L.geoJSON(SG_BOUNDARIES,{
     style:{color:'#0a0a0a',weight:0.6,opacity:0.35,fill:false,dashArray:null}
   });
   boundaryLayer.addTo(map);
@@ -625,7 +625,7 @@ function toggleVis(road,chkEl){
   }
 }
 
-function selectRoad
+function selectRoad(road,itemEl){
   if(activeItem) activeItem.classList.remove('active');
   itemEl.classList.add('active');
   activeItem=itemEl; activeRoad=road;
