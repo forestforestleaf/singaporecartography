@@ -1,686 +1,615 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
   <title>Singapore Cartography</title>
-
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --cream:     #fafff2;
-      --surface:   #f4efe4;
-      --surface2:  #ece5d6;
-      --border:    #e1d9c8;
-      --ink:       #0a0a0a;
-      --ink-mid:   #2a2a2a;
-      --ink-dim:   #6a6560;
-      --ink-ghost: #a09890;
-
-      /* Road category colours */
-      --exp-col:   #7a1535;
-      --maj-col:   #0a5c4a;
-      --min-col:   #8832c8;
-
-      /* Full expressway palette — one per road */
-      --aye-c: #d63c2f;
-      --bke-c: #e8a020;
-      --cte-c: #0a5c4a;
-      --ecp-c: #1e4d8c;
-      --kje-c: #8832c8;
-      --kpe-c: #d4541a;
-      --mce-c: #7a1535;
-      --pie-c: #c8328a;
-      --sle-c: #2a7c6f;
-      --tpe-c: #4a7a1e;
-
-      --font: Helvetica Neue, Helvetica, Arial, sans-serif;
-      --radius: 14px;
-      --shadow: 5px 5px 0 rgba(0,0,0,0.72);
-      --sidebar-w: 264px;
-      --card-w: 308px;
-      --status-h: 26px;
-      --t: 0.2s cubic-bezier(0.4,0,0.2,1);
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --cream:#fafff2;--surface:#f4efe4;--surf2:#ece5d6;--border:#e1d9c8;
+      --ink:#0a0a0a;--ink-mid:#2a2a2a;--ink-dim:#6a6560;--ink-ghost:#a09890;
+      --font:Helvetica Neue,Helvetica,Arial,sans-serif;
+      --radius:14px;--shadow:5px 5px 0 rgba(0,0,0,0.70);
+      --status-h:26px;--t:0.18s ease;
     }
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--surface);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+    #map{position:fixed;top:0;left:0;right:0;bottom:var(--status-h);z-index:1}
+    .leaflet-control-attribution{display:none!important}
+    .leaflet-bar{border:2px solid var(--ink)!important;border-radius:10px!important;overflow:hidden;box-shadow:3px 3px 0 rgba(0,0,0,0.55)!important}
+    .leaflet-bar a{background:var(--cream)!important;color:var(--ink)!important;border-color:var(--border)!important;font-weight:700!important}
+    .leaflet-bar a:hover{background:var(--surf2)!important}
 
-    html, body { height: 100%; overflow: hidden; background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; }
+    /* ── SIDEBAR ── */
+    #sidebar{position:fixed;top:16px;left:16px;bottom:calc(var(--status-h)+16px);width:264px;z-index:400;background:var(--cream);border:2.5px solid var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+    #sidebar-header{padding:14px 15px 12px;flex-shrink:0;position:relative;overflow:hidden}
+    #sidebar-header::before{content:'';position:absolute;inset:0;background:#E8A021;background-image:repeating-linear-gradient(-45deg,rgba(0,0,0,0.13) 0,rgba(0,0,0,0.13) 1px,transparent 1px,transparent 7px);z-index:0}
+    #sidebar-header>*{position:relative;z-index:1}
+    .logo{font-size:22px;font-weight:800;letter-spacing:-0.05em;color:#0a0a0a;line-height:1.0}
+    .tagline{font-size:9px;color:rgba(0,0,0,0.5);letter-spacing:0.16em;text-transform:uppercase;font-weight:700;margin-top:5px}
 
-    #app { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
+    /* Label toggle button in sidebar header */
+    #label-toggle{display:flex;align-items:center;gap:5px;margin-top:9px;padding:5px 9px;background:rgba(0,0,0,0.12);border:1.5px solid rgba(0,0,0,0.18);border-radius:7px;cursor:pointer;font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0a0a0a;transition:background 0.15s;width:fit-content}
+    #label-toggle:hover{background:rgba(0,0,0,0.2)}
+    #label-toggle .lt-dot{width:8px;height:8px;border-radius:50%;background:#0a0a0a;flex-shrink:0;transition:background 0.15s}
+    #label-toggle.off .lt-dot{background:rgba(0,0,0,0.3)}
+    #label-toggle.off{opacity:0.65}
 
-    /* ── MAP ──────────────────────────────────────── */
-    #map { position: absolute; inset: 0; bottom: var(--status-h); z-index: 1; }
+    #road-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+    #road-list::-webkit-scrollbar{width:3px}
+    #road-list::-webkit-scrollbar-thumb{background:var(--border)}
 
-    .leaflet-control-attribution { display: none !important; }
-    .leaflet-bar { border: 2px solid var(--ink) !important; border-radius: 10px !important; overflow: hidden; box-shadow: 3px 3px 0 rgba(0,0,0,0.65) !important; }
-    .leaflet-bar a { background: var(--cream) !important; color: var(--ink) !important; border-color: var(--border) !important; font-weight: 700 !important; }
-    .leaflet-bar a:hover { background: var(--surface2) !important; }
-    .leaflet-control-zoom { margin-top: 16px !important; margin-right: 16px !important; }
+    .road-category{border-bottom:1.5px solid var(--border)}
+    .cat-header{display:flex;align-items:center;justify-content:space-between;padding:0 13px;height:32px;cursor:pointer;user-select:none;border-left:4px solid transparent;transition:background var(--t)}
+    .cat-header:hover{background:var(--surf2)}
+    .cat-header.exp{border-left-color:#7a1535}
+    .cat-header.maj{border-left-color:#0a5c4a}
+    .cat-header.min{border-left-color:#8832c8}
+    .cat-label{font-size:8.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-dim)}
+    .cat-right{display:flex;align-items:center;gap:5px}
+    .cat-count{font-size:8.5px;color:var(--ink-ghost)}
+    .cat-chev{font-size:9px;color:var(--ink-ghost);transition:transform var(--t)}
+    .cat-chev.open{transform:rotate(180deg)}
+    .cat-body{overflow:hidden}
 
-    /* ── LEFT SIDEBAR — always visible floating card ── */
-    #sidebar {
-      position: absolute;
-      top: 16px; left: 16px;
-      bottom: calc(var(--status-h) + 16px);
-      width: var(--sidebar-w);
-      z-index: 200;
-      display: flex;
-      flex-direction: column;
-      background: var(--cream);
-      border: 2.5px solid var(--ink);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
+    .road-item{display:flex;align-items:center;padding:0 10px 0 13px;height:38px;cursor:pointer;gap:8px;border-left:4px solid transparent;border-bottom:1px solid var(--border);transition:background var(--t)}
+    .road-item:last-child{border-bottom:none}
+    .road-item:hover{background:var(--surf2)}
+    .road-item.active{background:rgba(0,0,0,0.04)}
+    .road-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:2px solid rgba(0,0,0,0.12);transition:transform var(--t)}
+    .road-item.active .road-dot{transform:scale(1.3)}
+    .road-badge{font-size:8px;font-weight:700;letter-spacing:0.04em;padding:2px 5px;border-radius:4px;flex-shrink:0;min-width:32px;text-align:center;color:#fff}
+    .road-name{font-size:10.5px;font-weight:600;color:var(--ink-mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+    .road-item.active .road-name{color:var(--ink);font-weight:700}
+    .road-km{font-size:8.5px;color:var(--ink-ghost);flex-shrink:0}
+    .road-check{flex-shrink:0;width:14px;height:14px;border:1.5px solid var(--border);border-radius:3px;background:var(--surf2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--t)}
+    .road-check.checked{background:var(--ink);border-color:var(--ink)}
+    .road-check.checked::after{content:'✓';font-size:9px;color:#fff;font-weight:800;line-height:1}
+    .cat-empty{padding:9px 13px;font-size:9px;color:var(--ink-ghost);text-transform:uppercase;letter-spacing:0.1em;font-weight:600}
 
-    #sidebar-header {
-      padding: 16px 16px 13px;
-      background: var(--ink);
-      flex-shrink: 0;
-      border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
-    }
+    /* ── INFO CARD ── */
+    #info-card{position:fixed;top:16px;right:16px;bottom:calc(var(--status-h)+16px);width:308px;z-index:400;background:var(--cream);border:2.5px solid var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+    #card-stripe{height:7px;background:var(--border);flex-shrink:0;transition:background 0.3s}
+    #card-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px;text-align:center}
+    .empty-hatch{width:72px;height:72px;background-image:repeating-linear-gradient(-45deg,var(--border) 0,var(--border) 1px,transparent 1px,transparent 7px);border:1.5px solid var(--border);border-radius:10px;opacity:0.7}
+    #card-empty p{font-size:10px;font-weight:600;color:var(--ink-ghost);letter-spacing:0.07em;line-height:1.8}
+    #card-content{display:none;flex-direction:column;height:100%;overflow:hidden}
+    #card-header{padding:13px 15px 12px;border-bottom:1.5px solid var(--border);flex-shrink:0}
+    #card-ref{font-size:8.5px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:2px}
+    #card-name{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.03em;line-height:1;margin-bottom:12px}
+    #card-meta{display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+    .meta-cell{flex:1;padding:6px 8px;border-right:1.5px solid var(--border);display:flex;flex-direction:column;gap:1px}
+    .meta-cell:last-child{border-right:none}
+    .meta-lbl{font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.13em;color:var(--ink-ghost)}
+    .meta-val{font-size:13px;font-weight:800;color:var(--ink);letter-spacing:-0.02em}
 
-    .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; color: var(--cream); line-height: 1.2; }
-    .logo-accent { color: #e8a020; }
-    .tagline { font-size: 9px; color: #777; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; margin-top: 4px; }
+    #card-body{flex:1;overflow-y:auto;padding:13px 15px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+    #card-body::-webkit-scrollbar{width:3px}
+    #card-body::-webkit-scrollbar-thumb{background:var(--border)}
+    .sec-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:var(--ink-ghost);margin-bottom:9px}
+    #card-facts{display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
+    .fact{padding:9px 11px;background:var(--surf2);border-radius:7px;border-left:4px solid var(--border);font-size:11px;font-weight:500;line-height:1.65;color:var(--ink-mid)}
 
-    #road-list { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-    #road-list::-webkit-scrollbar { width: 3px; }
-    #road-list::-webkit-scrollbar-thumb { background: var(--border); }
+    #connections-section{margin-bottom:6px}
+    .conn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:0}
+    .conn-col-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:var(--ink-ghost);margin-bottom:7px}
+    .conn-col{display:flex;flex-direction:column;gap:5px}
+    .conn-bubble-exp{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:-0.01em;border:1.5px solid rgba(0,0,0,0.15);cursor:default;white-space:nowrap}
+    .conn-bubble-area{display:inline-flex;align-items:center;padding:4px 9px;border-radius:20px;font-size:9.5px;font-weight:600;letter-spacing:-0.01em;background:var(--surf2);color:var(--ink-mid);border:1.5px solid var(--border);white-space:nowrap;overflow:hidden}
 
-    .road-category { border-bottom: 1.5px solid var(--border); }
+    #card-footer{padding:10px 15px 13px;border-top:1.5px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+    .btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 14px;border:2px solid var(--ink);border-radius:8px;background:var(--surf2);color:var(--ink);font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:0.05em;cursor:pointer;transition:all var(--t);width:100%}
+    .btn:hover{background:var(--ink);color:var(--cream)}
+    .btn.primary{color:#fff;border-color:transparent}
+    .btn.primary:hover{filter:brightness(0.82)}
+    .btn.copied{background:#0a5c4a!important;color:#fff!important;border-color:#0a5c4a!important}
 
-    .category-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 13px; height: 32px;
-      cursor: pointer; user-select: none;
-      border-left: 4px solid transparent;
-      transition: background var(--t);
-    }
-    .category-header:hover { background: var(--surface2); }
-    .category-header.exp { border-left-color: var(--exp-col); }
-    .category-header.maj { border-left-color: var(--maj-col); }
-    .category-header.min { border-left-color: var(--min-col); }
+    /* ── STATUS ── */
+    #status-bar{position:fixed;bottom:0;left:0;right:0;height:var(--status-h);background:var(--ink);display:flex;align-items:center;padding:0 14px;z-index:500;gap:8px}
+    #status-dot{width:6px;height:6px;border-radius:50%;background:#444;flex-shrink:0;transition:background 0.3s}
+    #status-dot.loading{background:#e8a020;animation:pulse 1s infinite}
+    #status-dot.error{background:#d63c2f}
+    #status-dot.ok{background:#0a5c4a}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
+    #status-text{font-size:9px;font-weight:600;letter-spacing:0.1em;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #status-coords{margin-left:auto;font-size:9px;color:#555;flex-shrink:0}
 
-    .category-label { font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
-    .cat-right { display: flex; align-items: center; gap: 5px; }
-    .category-count { font-size: 8.5px; color: var(--ink-ghost); }
-    .cat-chev { font-size: 9px; color: var(--ink-ghost); display: inline-block; transition: transform var(--t); }
-    .cat-chev.open { transform: rotate(180deg); }
+    /* ── HAMBURGER ── */
+    #hamburger{display:none;position:fixed;top:14px;left:14px;z-index:600;background:var(--ink);border:none;border-radius:10px;width:40px;height:40px;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;box-shadow:3px 3px 0 rgba(0,0,0,0.55)}
+    #hamburger span{display:block;width:18px;height:2px;background:var(--cream);border-radius:1px;transition:transform var(--t),opacity var(--t)}
+    #hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+    #hamburger.open span:nth-child(2){opacity:0}
+    #hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:350}
 
-    .category-roads { overflow: hidden; }
+    /* ── MOBILE DRAWER ── */
+    #mob-drawer{display:none;position:fixed;left:12px;right:12px;bottom:calc(var(--status-h)+10px);background:var(--cream);border:2.5px solid var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);z-index:450;transform:translateY(110%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);max-height:64vh;overflow-y:auto}
+    #mob-drawer.open{transform:translateY(0)}
+    #mob-handle{width:30px;height:3px;background:var(--border);border-radius:2px;margin:9px auto 5px;cursor:pointer}
+    #mob-inner{padding:0 15px 18px}
 
-    .road-item {
-      display: flex; align-items: center;
-      padding: 0 13px; height: 38px;
-      cursor: pointer; gap: 9px;
-      border-left: 4px solid transparent;
-      border-bottom: 1px solid var(--border);
-      transition: background var(--t);
-    }
-    .road-item:last-child { border-bottom: none; }
-    .road-item:hover { background: var(--surface2); }
-    .road-item.is-active { background: rgba(0,0,0,0.04); }
+    /* ── MAP CALLOUT LABELS ── */
+    .area-label{display:inline-block;background:#fff;border:1.5px solid #0a0a0a;border-radius:5px;padding:2px 6px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:9px;font-weight:700;letter-spacing:-0.02em;color:#0a0a0a;white-space:nowrap;pointer-events:none;box-shadow:1.5px 1.5px 0 rgba(0,0,0,0.60);line-height:1.3}
+    .area-label.active-area{background:#E8A021;border-color:#0a0a0a;color:#0a0a0a}
 
-    .road-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      flex-shrink: 0; border: 2px solid rgba(0,0,0,0.15);
-      transition: transform var(--t);
-    }
-    .road-item.is-active .road-dot { transform: scale(1.25); border-color: rgba(0,0,0,0.3); }
+    .road-callout-wrap{display:inline-block;white-space:nowrap;pointer-events:none}
+    .road-callout-inner{display:inline-block;padding:4px 10px;border-radius:6px;border:2px solid rgba(0,0,0,0.3);font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:-0.01em;white-space:nowrap;box-shadow:2.5px 2.5px 0 rgba(0,0,0,0.60)}
 
-    .road-badge {
-      font-size: 8px; font-weight: 700; letter-spacing: 0.04em;
-      padding: 2px 5px; border-radius: 4px; flex-shrink: 0;
-      min-width: 32px; text-align: center;
-      color: #fff; transition: all var(--t);
-    }
-
-    .road-item-name { font-size: 10.5px; font-weight: 600; color: var(--ink-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .road-item.is-active .road-item-name { color: var(--ink); font-weight: 700; }
-    .road-item-km { margin-left: auto; font-size: 8.5px; color: var(--ink-ghost); flex-shrink: 0; }
-    .empty-cat { padding: 9px 13px; font-size: 9px; color: var(--ink-ghost); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
-
-    /* ── RIGHT INFO CARD — always visible, starts empty ── */
-    #info-card {
-      position: absolute;
-      top: 16px; right: 16px;
-      bottom: calc(var(--status-h) + 16px);
-      width: var(--card-w);
-      z-index: 200;
-      display: flex;
-      flex-direction: column;
-      background: var(--cream);
-      border: 2.5px solid var(--ink);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    #card-stripe { height: 7px; background: var(--border); flex-shrink: 0; transition: background 0.3s; }
-
-    #card-empty {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 14px; padding: 28px; text-align: center;
-    }
-    .empty-hatch {
-      width: 80px; height: 80px;
-      background-image: repeating-linear-gradient(-45deg, var(--border) 0, var(--border) 1px, transparent 1px, transparent 7px);
-      border: 2px solid var(--border); border-radius: 10px;
-      opacity: 0.7;
-    }
-    #card-empty p { font-size: 10px; font-weight: 600; color: var(--ink-ghost); letter-spacing: 0.08em; line-height: 1.8; max-width: 180px; }
-
-    #card-content { display: none; flex-direction: column; height: 100%; overflow: hidden; }
-
-    #card-header { padding: 14px 16px 13px; border-bottom: 1.5px solid var(--border); flex-shrink: 0; }
-    #card-ref { font-size: 8.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-ghost); margin-bottom: 2px; }
-    #card-name { font-size: 28px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; line-height: 1; margin-bottom: 13px; }
-
-    #card-meta { display: flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .meta-item { flex: 1; padding: 6px 9px; border-right: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
-    .meta-item:last-child { border-right: none; }
-    .meta-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.13em; color: var(--ink-ghost); }
-    .meta-value { font-size: 13px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
-
-    #card-body { flex: 1; overflow-y: auto; padding: 14px 16px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-    #card-body::-webkit-scrollbar { width: 3px; }
-    #card-body::-webkit-scrollbar-thumb { background: var(--border); }
-
-    .sec-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-ghost); margin-bottom: 9px; }
-    #card-facts { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
-    .fact-item { padding: 9px 11px; background: var(--surface2); border-radius: 7px; border-left: 4px solid var(--border); font-size: 11px; font-weight: 500; line-height: 1.65; color: var(--ink-mid); }
-
-    #caption-box { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 7px; padding: 11px; font-size: 10px; font-weight: 500; line-height: 1.75; color: var(--ink-dim); white-space: pre-line; word-break: break-word; margin-bottom: 8px; }
-
-    #card-footer { padding: 11px 16px 14px; border-top: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
-    .action-btn {
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 10px 14px; border: 2px solid var(--ink); border-radius: 8px;
-      background: var(--surface2); color: var(--ink);
-      font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
-      cursor: pointer; transition: all var(--t); width: 100%;
-    }
-    .action-btn:hover { background: var(--ink); color: var(--cream); }
-    .action-btn.primary { color: #fff; border-color: transparent; }
-    .action-btn.primary:hover { filter: brightness(0.85); }
-    .action-btn.copied { background: var(--maj-col) !important; color: #fff; border-color: var(--maj-col) !important; }
-
-    /* ── STATUS BAR ─────────────────────────────────── */
-    #status-bar {
-      position: fixed; bottom: 0; left: 0; right: 0; height: var(--status-h);
-      background: var(--ink); display: flex; align-items: center;
-      padding: 0 14px; z-index: 500; gap: 8px;
-    }
-    #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #444; flex-shrink: 0; transition: background 0.3s; }
-    #status-dot.loading { background: #e8a020; animation: pulse 1s infinite; }
-    #status-dot.error   { background: #d63c2f; }
-    #status-dot.ok      { background: #0a5c4a; }
-    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.2} }
-    #status-text { font-size: 9px; font-weight: 600; letter-spacing: 0.1em; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #status-coords { margin-left: auto; font-size: 9px; font-weight: 600; color: #555; flex-shrink: 0; }
-
-    /* ── HAMBURGER (mobile) ─────────────────────────── */
-    #hamburger {
-      display: none; position: fixed; top: 14px; left: 14px; z-index: 600;
-      background: var(--ink); border: none; border-radius: 10px;
-      width: 40px; height: 40px; flex-direction: column; align-items: center;
-      justify-content: center; gap: 5px; cursor: pointer;
-      box-shadow: 3px 3px 0 rgba(0,0,0,0.65);
-    }
-    #hamburger span { display: block; width: 18px; height: 2px; background: var(--cream); border-radius: 1px; transition: transform var(--t), opacity var(--t); }
-    #hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    #hamburger.open span:nth-child(2) { opacity: 0; }
-    #hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 350; }
-
-    /* ── MOBILE BOTTOM DRAWER ───────────────────────── */
-    #mobile-drawer {
-      display: none; position: fixed; left: 12px; right: 12px;
-      bottom: calc(var(--status-h) + 10px);
-      background: var(--cream); border: 2.5px solid var(--ink);
-      border-radius: var(--radius); box-shadow: var(--shadow);
-      z-index: 450; transform: translateY(110%);
-      transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
-      max-height: 64vh; overflow-y: auto;
-    }
-    #mobile-drawer.open { transform: translateY(0); }
-    #mob-handle { width: 30px; height: 3px; background: var(--border); border-radius: 2px; margin: 9px auto 5px; cursor: pointer; }
-    #mob-inner { padding: 0 15px 18px; }
-
-    /* ── RESPONSIVE ─────────────────────────────────── */
-    @media (max-width: 980px) {
-      #info-card { display: none; }
-      #mobile-drawer { display: block; }
-    }
-    @media (max-width: 700px) {
-      #sidebar { display: none; }
-      #sidebar.open { display: flex; position: fixed; left: 10px; top: 10px; bottom: calc(var(--status-h) + 10px); z-index: 400; width: 260px; }
-      #sidebar-overlay { display: block; opacity: 0; pointer-events: none; transition: opacity var(--t); }
-      #sidebar-overlay.active { opacity: 1; pointer-events: all; }
-      #hamburger { display: flex; }
+    /* ── RESPONSIVE ── */
+    @media(max-width:980px){#info-card{display:none}#mob-drawer{display:block}}
+    @media(max-width:700px){
+      #sidebar{transform:translateX(calc(-100% - 20px));transition:transform var(--t)}
+      #sidebar.open{transform:translateX(0)}
+      #overlay{display:block;opacity:0;pointer-events:none;transition:opacity var(--t)}
+      #overlay.active{opacity:1;pointer-events:all}
+      #hamburger{display:flex}
     }
   </style>
 </head>
 <body>
-<div id="app">
-
   <div id="map"></div>
-
   <button id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
-  <div id="sidebar-overlay"></div>
+  <div id="overlay"></div>
 
-  <!-- Left floating sidebar -->
   <nav id="sidebar">
     <div id="sidebar-header">
-      <div class="logo">Singapore<span class="logo-accent">Cartography</span></div>
+      <div class="logo">Singapore<br>Cartography</div>
       <div class="tagline">Road atlas</div>
+      <button id="label-toggle" class="off">
+        <span class="lt-dot"></span>
+        <span id="lt-text">Labels off</span>
+      </button>
     </div>
     <div id="road-list"></div>
   </nav>
 
-  <!-- Right floating info card -->
   <aside id="info-card">
     <div id="card-stripe"></div>
     <div id="card-empty">
       <div class="empty-hatch"></div>
-      <p>Select a road to view facts and generate a caption</p>
+      <p>Select a road to view facts and connections</p>
     </div>
     <div id="card-content">
       <div id="card-header">
         <div id="card-ref"></div>
         <div id="card-name"></div>
         <div id="card-meta">
-          <div class="meta-item"><span class="meta-label">Length</span><span class="meta-value" id="meta-length">—</span></div>
-          <div class="meta-item"><span class="meta-label">Opened</span><span class="meta-value" id="meta-opened">—</span></div>
-          <div class="meta-item"><span class="meta-label">Type</span><span class="meta-value" id="meta-cat">—</span></div>
+          <div class="meta-cell"><span class="meta-lbl">Length</span><span class="meta-val" id="meta-length">—</span></div>
+          <div class="meta-cell"><span class="meta-lbl">Opened</span><span class="meta-val" id="meta-opened">—</span></div>
+          <div class="meta-cell"><span class="meta-lbl">Type</span><span class="meta-val" id="meta-cat">—</span></div>
         </div>
       </div>
       <div id="card-body">
-        <div class="sec-label">Road facts</div>
+        <div class="sec-lbl">Road facts</div>
         <div id="card-facts"></div>
-        <div class="sec-label">Instagram caption</div>
-        <div id="caption-box"></div>
+        <div id="connections-section">
+          <div class="conn-grid">
+            <div>
+              <div class="conn-col-label">Connected expressways</div>
+              <div class="conn-col" id="conn-exp"></div>
+            </div>
+            <div>
+              <div class="conn-col-label">Regions</div>
+              <div class="conn-col" id="conn-area"></div>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="card-footer">
-        <button class="action-btn primary" id="btn-copy">⊕ Copy caption</button>
-        <button class="action-btn" id="btn-export">↓ Export map image</button>
+        <button class="btn primary" id="btn-copy">⊕ Copy caption</button>
+        <button class="btn" id="btn-export">↓ Export map image</button>
       </div>
     </div>
   </aside>
 
-  <!-- Mobile drawer -->
-  <div id="mobile-drawer">
-    <div id="mob-handle"></div>
-    <div id="mob-inner"></div>
-  </div>
+  <div id="mob-drawer"><div id="mob-handle"></div><div id="mob-inner"></div></div>
+  <div id="status-bar"><div id="status-dot"></div><div id="status-text">Loading…</div><div id="status-coords"></div></div>
 
-  <!-- Status bar -->
-  <div id="status-bar">
-    <div id="status-dot"></div>
-    <div id="status-text">Initialising…</div>
-    <div id="status-coords"></div>
-  </div>
-</div>
-
-<!-- Load Leaflet THEN run all code -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="initApp()" onerror="document.getElementById('status-text').textContent='Failed to load Leaflet. Check internet connection.'"></script>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g=typeof window!=="undefined"?window:typeof global!=="undefined"?global:self;g.leafletImage=f()}})(function(){var define,module,exports;return(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){throw new Error("no module")}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){return s(t[o][1][e]||e)},l,l.exports,e,t,n,r)}return n[o].exports}for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){var queue=require("d3-queue").queue;var cd=+new Date();module.exports=function(map,cb){var dim=map.getSize(),lq=new queue(1),cv=document.createElement("canvas");cv.width=dim.x;cv.height=dim.y;var ctx=cv.getContext("2d");var dum=document.createElement("canvas");dum.width=1;dum.height=1;map.eachLayer(function(l){if(l instanceof L.TileLayer)lq.defer(ht,l)});if(map._panes){var fc=map._panes.overlayPane.getElementsByTagName("canvas").item(0);if(fc)lq.defer(hr,fc)}lq.awaitAll(function(err,layers){if(err)throw err;layers.forEach(function(l){if(l&&l.cv)ctx.drawImage(l.cv,0,0)});cb(null,cv)});function ht(layer,callback){var c=document.createElement("canvas");c.width=dim.x;c.height=dim.y;var cx=c.getContext("2d"),bounds=map.getPixelBounds(),zoom=map.getZoom(),ts=layer.options.tileSize;if(zoom>layer.options.maxZoom||zoom<layer.options.minZoom)return callback();var tb=L.bounds(bounds.min.divideBy(ts)._floor(),bounds.max.divideBy(ts)._floor()),tiles=[],tq=new queue(1);for(var j=tb.min.y;j<=tb.max.y;j++)for(var ii=tb.min.x;ii<=tb.max.x;ii++)tiles.push(new L.Point(ii,j));tiles.forEach(function(tp){var otp=tp.clone();if(layer._adjustTilePoint)layer._adjustTilePoint(tp);var pos=otp.scaleBy(new L.Point(ts,ts)).subtract(bounds.min);if(tp.y>=0){var url=ac(layer.getTileUrl(tp));tq.defer(function(u,p,sz,done){var im=new Image();im.crossOrigin="";im.onload=function(){done(null,{img:this,pos:p,size:sz})};im.onerror=function(){done(null,{img:dum,pos:p,size:sz})};im.src=u},url,pos,ts)}});tq.awaitAll(function(err,data){data.forEach(function(d){cx.drawImage(d.img,Math.floor(d.pos.x),Math.floor(d.pos.y),d.size,d.size)});callback(null,{cv:c})})}function hr(root,callback){var b=map.getPixelBounds(),o=map.getPixelOrigin(),c=document.createElement("canvas");c.width=dim.x;c.height=dim.y;var cx=c.getContext("2d"),pos=L.DomUtil.getPosition(root).subtract(b.min).add(o);try{cx.drawImage(root,pos.x,pos.y,c.width-pos.x*2,c.height-pos.y*2);callback(null,{cv:c})}catch(e){callback(null,null)}}function ac(url){if(/data:/.test(url))return url;return url+(url.match(/[?]/)?"&":"?")+"_="+cd}};},{"d3-queue":2}],2:[function(require,module,exports){(function(g,f){typeof exports==="object"?f(exports):f(g.d3_queue=g.d3_queue||{})}(this,function(exports){"use strict";var slice=[].slice,noabort={};function Queue(size){if(!(size>=1))throw new Error;this._size=size;this._call=this._error=null;this._tasks=[];this._data=[];this._waiting=this._active=this._ended=this._start=0}Queue.prototype=queue.prototype={constructor:Queue,defer:function(cb){if(typeof cb!=="function"||this._call)throw new Error;if(this._error!=null)return this;var t=slice.call(arguments,1);t.push(cb);++this._waiting;this._tasks.push(t);poke(this);return this},abort:function(){if(this._error==null)abort(this,new Error("abort"));return this},await:function(cb){if(typeof cb!=="function"||this._call)throw new Error;this._call=function(e,r){cb.apply(null,[e].concat(r))};maybeNotify(this);return this},awaitAll:function(cb){if(typeof cb!=="function"||this._call)throw new Error;this._call=cb;maybeNotify(this);return this}};function poke(q){if(!q._start)try{start(q)}catch(e){if(q._tasks[q._ended+q._active-1])abort(q,e)}}function start(q){while(q._start=q._waiting&&q._active<q._size){var i=q._ended+q._active,t=q._tasks[i],j=t.length-1,c=t[j];t[j]=end(q,i);--q._waiting;++q._active;t=c.apply(null,t);if(!q._tasks[i])continue;q._tasks[i]=t||noabort}}function end(q,i){return function(e,r){if(!q._tasks[i])return;--q._active;++q._ended;q._tasks[i]=null;if(q._error!=null)return;if(e!=null)abort(q,e);else{q._data[i]=r;if(q._waiting)poke(q);else maybeNotify(q)}}}function abort(q,e){var i=q._tasks.length,t;q._error=e;q._data=undefined;q._waiting=NaN;while(--i>=0){if(t=q._tasks[i]){q._tasks[i]=null;if(t.abort)try{t.abort()}catch(e){}}}q._active=NaN;maybeNotify(q)}function maybeNotify(q){if(!q._active&&q._call)q._call(q._error,q._data)}function queue(c){return new Queue(arguments.length?+c:Infinity)}exports.queue=queue}))},{}]},{},[1])(1)})</script>
 <script>
-// ─── leaflet-image inlined ─────────────────────────────────────────────────
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.leafletImage=f()}})(function(){var define,module,exports;return(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){var queue=require('d3-queue').queue;var cacheBusterDate=+new Date();module.exports=function leafletImage(map,callback){var dimensions=map.getSize(),layerQueue=new queue(1);var canvas=document.createElement('canvas');canvas.width=dimensions.x;canvas.height=dimensions.y;var ctx=canvas.getContext('2d');var dummycanvas=document.createElement('canvas');dummycanvas.width=1;dummycanvas.height=1;var dummyctx=dummycanvas.getContext('2d');dummyctx.fillStyle='rgba(0,0,0,0)';dummyctx.fillRect(0,0,1,1);map.eachLayer(drawTileLayer);if(map._pathRoot){layerQueue.defer(handlePathRoot,map._pathRoot)}else if(map._panes){var firstCanvas=map._panes.overlayPane.getElementsByTagName('canvas').item(0);if(firstCanvas){layerQueue.defer(handlePathRoot,firstCanvas)}}map.eachLayer(drawMarkerLayer);layerQueue.awaitAll(layersDone);function drawTileLayer(l){if(l instanceof L.TileLayer)layerQueue.defer(handleTileLayer,l)}function drawMarkerLayer(l){if(l instanceof L.Marker&&l.options.icon instanceof L.Icon){layerQueue.defer(handleMarkerLayer,l)}}function done(){callback(null,canvas)}function layersDone(err,layers){if(err)throw err;layers.forEach(function(layer){if(layer&&layer.canvas){ctx.drawImage(layer.canvas,0,0)}});done()}function handleTileLayer(layer,callback){var canvas=document.createElement('canvas');canvas.width=dimensions.x;canvas.height=dimensions.y;var ctx=canvas.getContext('2d'),bounds=map.getPixelBounds(),zoom=map.getZoom(),tileSize=layer.options.tileSize;if(zoom>layer.options.maxZoom||zoom<layer.options.minZoom){return callback()}var tileBounds=L.bounds(bounds.min.divideBy(tileSize)._floor(),bounds.max.divideBy(tileSize)._floor()),tiles=[],j,i,tileQueue=new queue(1);for(j=tileBounds.min.y;j<=tileBounds.max.y;j++){for(i=tileBounds.min.x;i<=tileBounds.max.x;i++){tiles.push(new L.Point(i,j))}}tiles.forEach(function(tilePoint){var originalTilePoint=tilePoint.clone();if(layer._adjustTilePoint){layer._adjustTilePoint(tilePoint)}var tilePos=originalTilePoint.scaleBy(new L.Point(tileSize,tileSize)).subtract(bounds.min);if(tilePoint.y>=0){var url=addCacheString(layer.getTileUrl(tilePoint));tileQueue.defer(loadTile,url,tilePos,tileSize)}});tileQueue.awaitAll(tileQueueFinish);function loadTile(url,tilePos,tileSize,callback){var im=new Image();im.crossOrigin='';im.onload=function(){callback(null,{img:this,pos:tilePos,size:tileSize})};im.onerror=function(){callback(null,{img:dummycanvas,pos:tilePos,size:tileSize})};im.src=url}function tileQueueFinish(err,data){data.forEach(drawTile);callback(null,{canvas:canvas})}function drawTile(d){ctx.drawImage(d.img,Math.floor(d.pos.x),Math.floor(d.pos.y),d.size,d.size)}}function handlePathRoot(root,callback){var bounds=map.getPixelBounds(),origin=map.getPixelOrigin(),canvas=document.createElement('canvas');canvas.width=dimensions.x;canvas.height=dimensions.y;var ctx=canvas.getContext('2d');var pos=L.DomUtil.getPosition(root).subtract(bounds.min).add(origin);try{ctx.drawImage(root,pos.x,pos.y,canvas.width-(pos.x*2),canvas.height-(pos.y*2));callback(null,{canvas:canvas})}catch(e){console.error(e)}}function handleMarkerLayer(marker,callback){var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),pixelBounds=map.getPixelBounds(),minPoint=new L.Point(pixelBounds.min.x,pixelBounds.min.y),pixelPoint=map.project(marker.getLatLng()),im=new Image(),options=marker.options.icon.options,size=options.iconSize,pos=pixelPoint.subtract(minPoint),anchor=L.point(options.iconAnchor||size&&size.divideBy(2,true));if(size instanceof L.Point)size=[size.x,size.y];var x=Math.round(pos.x-size[0]+anchor.x),y=Math.round(pos.y-anchor.y);canvas.width=dimensions.x;canvas.height=dimensions.y;im.crossOrigin='';im.onload=function(){ctx.drawImage(this,x,y,size[0],size[1]);callback(null,{canvas:canvas})};im.src=marker._icon.src}function addCacheString(url){if(/^\s*data:/.test(url))return url;return url+((url.match(/\?/))? '&':'?')+'cache='+cacheBusterDate}};},{"d3-queue":2}],2:[function(require,module,exports){(function(global,factory){typeof exports==='object'&&typeof module!=='undefined'?factory(exports):typeof define==='function'&&define.amd?define(['exports'],factory):(factory((global.d3_queue=global.d3_queue||{})))}(this,function(exports){'use strict';var slice=[].slice;var noabort={};function Queue(size){if(!(size>=1))throw new Error;this._size=size;this._call=this._error=null;this._tasks=[];this._data=[];this._waiting=this._active=this._ended=this._start=0}Queue.prototype=queue.prototype={constructor:Queue,defer:function(callback){if(typeof callback!=="function"||this._call)throw new Error;if(this._error!=null)return this;var t=slice.call(arguments,1);t.push(callback);++this._waiting,this._tasks.push(t);poke(this);return this},abort:function(){if(this._error==null)abort(this,new Error("abort"));return this},await:function(callback){if(typeof callback!=="function"||this._call)throw new Error;this._call=function(error,results){callback.apply(null,[error].concat(results))};maybeNotify(this);return this},awaitAll:function(callback){if(typeof callback!=="function"||this._call)throw new Error;this._call=callback;maybeNotify(this);return this}};function poke(q){if(!q._start)try{start(q)}catch(e){if(q._tasks[q._ended+q._active-1])abort(q,e)}}function start(q){while(q._start=q._waiting&&q._active<q._size){var i=q._ended+q._active,t=q._tasks[i],j=t.length-1,c=t[j];t[j]=end(q,i);--q._waiting,++q._active;t=c.apply(null,t);if(!q._tasks[i])continue;q._tasks[i]=t||noabort}}function end(q,i){return function(e,r){if(!q._tasks[i])return;--q._active,++q._ended;q._tasks[i]=null;if(q._error!=null)return;if(e!=null){abort(q,e)}else{q._data[i]=r;if(q._waiting)poke(q);else maybeNotify(q)}}}function abort(q,e){var i=q._tasks.length,t;q._error=e;q._data=undefined;q._waiting=NaN;while(--i>=0){if(t=q._tasks[i]){q._tasks[i]=null;if(t.abort)try{t.abort()}catch(e){}}}q._active=NaN;maybeNotify(q)}function maybeNotify(q){if(!q._active&&q._call)q._call(q._error,q._data)}function queue(concurrency){return new Queue(arguments.length?+concurrency:Infinity)}exports.queue=queue}))},{}]},{},[1])(1)});
+const EXP_DATA={"TPE":[[[103.94104,1.37083],[103.94065,1.37116],[103.93973,1.37172],[103.93395,1.37475]],[[103.93653,1.37359],[103.93783,1.37288]],[[103.93403,1.37488],[103.9352,1.37432],[103.93653,1.37359]],[[103.93783,1.37288],[103.9404,1.37151],[103.94141,1.37077],[103.94236,1.36992]],[[103.9415,1.37048],[103.94104,1.37083]],[[103.9429,1.36918],[103.9415,1.37048]],[[103.94236,1.36992],[103.94325,1.3691]],[[103.94325,1.3691],[103.94388,1.36859]],[[103.94461,1.36745],[103.94439,1.3678],[103.9442,1.368],[103.94327,1.36876],[103.9429,1.36918]],[[103.94388,1.36859],[103.94464,1.36825],[103.94511,1.36814]],[[103.92852,1.37714],[103.92707,1.37753]],[[103.9272,1.37767],[103.9282,1.37739]],[[103.9282,1.37739],[103.92845,1.37731]],[[103.92921,1.37689],[103.92852,1.37714]],[[103.92845,1.37731],[103.92855,1.37733],[103.92898,1.37722]],[[103.92845,1.37731],[103.92987,1.37676]],[[103.92981,1.37662],[103.92921,1.37689]],[[103.92212,1.37892],[103.92116,1.37935]],[[103.9207,1.37983],[103.92164,1.37933],[103.92302,1.37877],[103.92401,1.37846],[103.9272,1.37767]],[[103.92707,1.37753],[103.92399,1.37828],[103.92296,1.37859],[103.92212,1.37892]],[[103.91816,1.38386],[103.91811,1.38329]],[[103.91646,1.38456],[103.91777,1.38493],[103.91996,1.38528],[103.92065,1.38546]],[[103.91782,1.38215],[103.91819,1.38182]],[[103.91742,1.38256],[103.91782,1.38215]],[[103.91761,1.38213],[103.91729,1.38247]],[[103.91819,1.38182],[103.91843,1.38159]],[[103.91867,1.38057],[103.91771,1.38095],[103.91729,1.38092],[103.91696,1.38076]],[[103.9208,1.37951],[103.91916,1.38065],[103.91824,1.38148],[103.91761,1.38213]],[[103.91843,1.38159],[103.91885,1.38116],[103.91959,1.38055],[103.9201,1.38018],[103.9207,1.37983]],[[103.92116,1.37935],[103.9208,1.37951]],[[103.91518,1.38501],[103.91643,1.38358],[103.91742,1.38256]],[[103.91729,1.38247],[103.91627,1.38355]],[[103.91627,1.38355],[103.9153,1.38459]],[[103.9153,1.38459],[103.91478,1.38521]],[[103.91318,1.38733],[103.91379,1.38663]],[[103.91478,1.38521],[103.9137,1.38646]],[[103.91446,1.38585],[103.9149,1.38534]],[[103.91379,1.38663],[103.91446,1.38585]],[[103.9149,1.38534],[103.91518,1.38501]],[[103.96098,1.36126],[103.96113,1.36083],[103.96115,1.36032]],[[103.96152,1.35954],[103.96059,1.36085]],[[103.96073,1.36091],[103.96167,1.35963]],[[103.96275,1.35761],[103.96305,1.35678]],[[103.96298,1.35629],[103.96288,1.3566]],[[103.96329,1.35517],[103.96298,1.35629]],[[103.96305,1.35678],[103.96352,1.35524]],[[103.96376,1.35444],[103.96493,1.35051],[103.96532,1.34961]],[[103.96362,1.35432],[103.96329,1.35517]],[[103.96352,1.35524],[103.96361,1.35516],[103.96377,1.35475]],[[103.96352,1.35524],[103.96376,1.35444]],[[103.96288,1.3566],[103.96278,1.3569]],[[103.96278,1.3569],[103.96262,1.3573]],[[103.96262,1.3573],[103.96254,1.35743]],[[103.96254,1.35743],[103.96244,1.35767]],[[103.96244,1.35767],[103.96215,1.35838],[103.96152,1.35954]],[[103.96167,1.35963],[103.96211,1.3589],[103.96275,1.35761]],[[103.95836,1.36302],[103.95763,1.36354]],[[103.96059,1.36085],[103.95956,1.36198],[103.95873,1.36274],[103.95836,1.36302]],[[103.95695,1.36417],[103.95839,1.3632],[103.9592,1.36254],[103.96017,1.36158],[103.96073,1.36091]],[[103.95393,1.36544],[103.95501,1.36509]],[[103.95763,1.36354],[103.95626,1.36435],[103.95568,1.36463],[103.95499,1.36493],[103.95387,1.36529]],[[103.95501,1.36509],[103.95551,1.36489]],[[103.95551,1.36489],[103.95695,1.36417]],[[103.95305,1.36568],[103.95393,1.36544]],[[103.95387,1.36529],[103.95296,1.36554]],[[103.94888,1.36668],[103.95305,1.36568]],[[103.95296,1.36554],[103.94808,1.36665]],[[103.94592,1.36601],[103.94579,1.36599],[103.94536,1.36613]],[[103.94586,1.36803],[103.94621,1.36797],[103.94639,1.36782]],[[103.94388,1.36859],[103.94437,1.36823],[103.94502,1.36786],[103.94602,1.36741],[103.94692,1.36713],[103.94888,1.36668]],[[103.94654,1.36705],[103.94632,1.36704],[103.94562,1.36721],[103.94532,1.36716],[103.9451,1.367],[103.945,1.36673],[103.94504,1.36657],[103.94517,1.36638],[103.9456,1.36613],[103.94584,1.36615],[103.94599,1.36627]],[[103.94543,1.36811],[103.94586,1.36803]],[[103.94808,1.36665],[103.94654,1.36705],[103.94543,1.36749],[103.94394,1.36833],[103.9429,1.36918]],[[103.94511,1.36814],[103.94543,1.36811]],[[103.94536,1.36613],[103.94513,1.36627],[103.94495,1.36653],[103.94461,1.36745]],[[103.93395,1.37475],[103.93381,1.37481]],[[103.9339,1.37494],[103.93403,1.37488]],[[103.93259,1.37555],[103.9339,1.37494]],[[103.93381,1.37481],[103.93253,1.3754]],[[103.93283,1.37492],[103.9324,1.37518],[103.93208,1.37555],[103.93191,1.37566]],[[103.92987,1.37676],[103.93259,1.37555]],[[103.93253,1.3754],[103.92981,1.37662]],[[103.96634,1.34755],[103.96556,1.34851],[103.96515,1.34927],[103.96362,1.35432]],[[103.96808,1.34517],[103.96793,1.34531],[103.96688,1.34678]],[[103.96635,1.3482],[103.967,1.3473],[103.96753,1.3463]],[[103.96688,1.34678],[103.96634,1.34755]],[[103.96532,1.34961],[103.96563,1.3491]],[[103.96563,1.3491],[103.96606,1.34855]],[[103.96606,1.34855],[103.96635,1.3482]],[[103.87757,1.40136],[103.88084,1.40144]],[[103.88228,1.40126],[103.87759,1.40116]],[[103.88084,1.40144],[103.88131,1.40144]],[[103.88131,1.40144],[103.8821,1.40145]],[[103.8821,1.40145],[103.88282,1.40144]],[[103.88585,1.4012],[103.88478,1.40126],[103.88228,1.40126]],[[103.88282,1.40144],[103.88507,1.40142],[103.88585,1.40137]],[[103.88585,1.40137],[103.88766,1.40119]],[[103.88764,1.40104],[103.88585,1.4012]],[[103.88766,1.40119],[103.88912,1.40103]],[[103.89076,1.40061],[103.88764,1.40104]],[[103.88912,1.40103],[103.8904,1.40087]],[[103.8904,1.40087],[103.89164,1.40071]],[[103.89212,1.4004],[103.89076,1.40061]],[[103.89164,1.40071],[103.89312,1.40047]],[[103.89312,1.40047],[103.89462,1.40024]],[[103.89485,1.40006],[103.89212,1.4004]],[[103.89679,1.39968],[103.89485,1.40006]],[[103.89462,1.40024],[103.89651,1.39994],[103.89768,1.39963],[103.89882,1.39926],[103.90082,1.39849],[103.90244,1.39769]],[[103.90242,1.39746],[103.90091,1.39825],[103.89885,1.39909],[103.89679,1.39968]],[[103.90322,1.39701],[103.90253,1.3974]],[[103.90253,1.3974],[103.90242,1.39746]],[[103.9093,1.3916],[103.9081,1.39296],[103.90698,1.39411]],[[103.90698,1.39434],[103.90823,1.39307],[103.90883,1.39237]],[[103.90597,1.39502],[103.90566,1.39531]],[[103.90548,1.39564],[103.90605,1.39519]],[[103.90566,1.39531],[103.90524,1.39563]],[[103.90524,1.39563],[103.90394,1.3966],[103.90322,1.39701]],[[103.90244,1.39769],[103.90474,1.39623],[103.90548,1.39564]],[[103.90644,1.39484],[103.90698,1.39434]],[[103.90605,1.39519],[103.90644,1.39484]],[[103.90654,1.3945],[103.90597,1.39502]],[[103.90698,1.39411],[103.90654,1.3945]],[[103.90976,1.39129],[103.91318,1.38733]],[[103.90961,1.39123],[103.9093,1.3916]],[[103.90883,1.39237],[103.90976,1.39129]],[[103.90966,1.39118],[103.90961,1.39123]],[[103.9137,1.38646],[103.90966,1.39118]],[[103.87552,1.4013],[103.87757,1.40136]],[[103.87759,1.40116],[103.87624,1.40112]],[[103.87624,1.40112],[103.87593,1.4011]],[[103.87593,1.4011],[103.87471,1.40111]],[[103.87531,1.40134],[103.87552,1.4013]],[[103.87388,1.40125],[103.87531,1.40134]],[[103.87471,1.40111],[103.87298,1.40101]],[[103.87298,1.40121],[103.87388,1.40125]],[[103.8715,1.40118],[103.87298,1.40121]],[[103.87298,1.40101],[103.8723,1.401]],[[103.87191,1.40098],[103.87158,1.40098]],[[103.8723,1.401],[103.87191,1.40098]],[[103.86979,1.40115],[103.8715,1.40118]],[[103.87158,1.40098],[103.87045,1.40094]],[[103.87024,1.40094],[103.86983,1.40093]],[[103.87045,1.40094],[103.87024,1.40094]],[[103.86941,1.40114],[103.86979,1.40115]],[[103.86983,1.40093],[103.86931,1.40091]],[[103.86931,1.40091],[103.86349,1.40077]],[[103.86215,1.40092],[103.86941,1.40114]],[[103.86349,1.40077],[103.86046,1.40074],[103.85901,1.40057]],[[103.86055,1.40088],[103.86215,1.40092]],[[103.85898,1.40075],[103.85933,1.40082],[103.86055,1.40088]],[[103.85807,1.4005],[103.85861,1.40067]],[[103.85901,1.40057],[103.85799,1.4003]],[[103.85861,1.40067],[103.85898,1.40075]],[[103.8575,1.40032],[103.85807,1.4005]],[[103.85799,1.4003],[103.8572,1.39999]],[[103.8572,1.39999],[103.85667,1.39973]],[[103.85667,1.39973],[103.85655,1.39958]],[[103.85667,1.39973],[103.85649,1.39965]],[[103.85649,1.39965],[103.85575,1.39921],[103.85509,1.39868]],[[103.852,1.39699],[103.85214,1.39712],[103.85285,1.39751]],[[103.85285,1.39751],[103.85338,1.39778]],[[103.85509,1.39868],[103.85326,1.39687],[103.85246,1.3965]],[[103.85338,1.39778],[103.85382,1.39802]],[[103.85382,1.39802],[103.85619,1.39967],[103.85662,1.39992],[103.8575,1.40032]],[[103.85246,1.3965],[103.85169,1.39637],[103.85021,1.39629]],[[103.85021,1.39629],[103.84952,1.39629]],[[103.84952,1.39629],[103.84817,1.39642]]],"AYE":[[[103.79866,1.28527],[103.79806,1.28567]],[[103.79797,1.28594],[103.79825,1.28575]],[[103.79736,1.28637],[103.79797,1.28594]],[[103.79806,1.28567],[103.79668,1.2866]],[[103.79702,1.28659],[103.79736,1.28637]],[[103.7968,1.28673],[103.79702,1.28659]],[[103.79466,1.28802],[103.79594,1.2873],[103.7968,1.28673]],[[103.79668,1.2866],[103.79508,1.2875]],[[103.79267,1.28965],[103.79304,1.28933]],[[103.79305,1.2889],[103.7927,1.28919]],[[103.79332,1.28868],[103.79305,1.2889]],[[103.79283,1.28932],[103.79317,1.28904]],[[103.79317,1.28904],[103.79343,1.28883]],[[103.7943,1.28825],[103.79466,1.28802]],[[103.79508,1.2875],[103.79411,1.2881],[103.79332,1.28868]],[[103.79343,1.28883],[103.7943,1.28825]],[[103.793,1.28857],[103.7927,1.28863],[103.79252,1.28858]],[[103.79158,1.29003],[103.78976,1.29115]],[[103.7927,1.28919],[103.79177,1.28989]],[[103.79177,1.28989],[103.79158,1.29003]],[[103.79037,1.29101],[103.79221,1.2898],[103.79283,1.28932]],[[103.77648,1.30122],[103.77454,1.30233]],[[103.77402,1.30285],[103.77659,1.30136]],[[103.77454,1.30233],[103.77438,1.30234]],[[103.77454,1.30233],[103.77401,1.30265]],[[103.7735,1.30317],[103.77402,1.30285]],[[103.77401,1.30265],[103.77338,1.30299]],[[103.77198,1.30392],[103.7735,1.30317]],[[103.84527,1.27269],[103.84654,1.27254]],[[103.84973,1.27315],[103.84869,1.27262]],[[103.84654,1.27254],[103.84713,1.27245],[103.84805,1.27253],[103.84855,1.27272],[103.84942,1.27324]],[[103.84869,1.27262],[103.84825,1.27241],[103.84776,1.2723],[103.84719,1.2723],[103.84652,1.2724]],[[103.64223,1.34303],[103.64051,1.34463]],[[103.63751,1.34766],[103.64059,1.34472]],[[103.64051,1.34463],[103.63793,1.34706]],[[103.63793,1.34706],[103.63736,1.34739]],[[103.63736,1.34739],[103.63724,1.34744],[103.63695,1.3474]],[[103.63729,1.34803],[103.63751,1.34766]],[[103.64391,1.3417],[103.64515,1.34046],[103.64647,1.33928]],[[103.64638,1.33919],[103.64363,1.3417]],[[103.64299,1.34253],[103.64391,1.3417]],[[103.64363,1.3417],[103.64223,1.34303]],[[103.64059,1.34472],[103.64299,1.34253]],[[103.64647,1.33928],[103.64704,1.33875]],[[103.64695,1.33866],[103.64638,1.33919]],[[103.64704,1.33875],[103.65416,1.33191]],[[103.70168,1.32213],[103.70002,1.32227]],[[103.7006,1.32241],[103.70288,1.32219]],[[103.70323,1.32198],[103.70168,1.32213]],[[103.70002,1.32227],[103.69832,1.32245]],[[103.69833,1.32261],[103.7006,1.32241]],[[103.69471,1.32279],[103.69652,1.32275],[103.69833,1.32261]],[[103.69832,1.32245],[103.69651,1.3226],[103.69469,1.32265]],[[103.68902,1.32281],[103.68955,1.32282]],[[103.6898,1.32262],[103.68622,1.32265]],[[103.68616,1.3228],[103.68902,1.32281]],[[103.68622,1.32265],[103.68583,1.32264]],[[103.68583,1.3228],[103.68616,1.3228]],[[103.68955,1.32282],[103.69027,1.32282]],[[103.69178,1.3226],[103.6898,1.32262]],[[103.69027,1.32282],[103.69287,1.32279]],[[103.69295,1.32265],[103.69178,1.3226]],[[103.69287,1.32279],[103.69308,1.32279]],[[103.69309,1.32265],[103.69295,1.32265]],[[103.69308,1.32279],[103.69471,1.32279]],[[103.69469,1.32265],[103.69309,1.32265]],[[103.6746,1.32248],[103.67877,1.32279]],[[103.67877,1.32279],[103.67954,1.32281]],[[103.67954,1.32266],[103.67868,1.32263]],[[103.68583,1.32264],[103.68367,1.32262]],[[103.68442,1.3228],[103.68583,1.3228]],[[103.67954,1.32281],[103.68442,1.3228]],[[103.68367,1.32262],[103.67954,1.32266]],[[103.67868,1.32263],[103.67079,1.32208]],[[103.67303,1.32237],[103.6746,1.32248]],[[103.66992,1.32213],[103.67076,1.32221]],[[103.67076,1.32221],[103.67303,1.32237]],[[103.67079,1.32208],[103.67042,1.32205]],[[103.67042,1.32205],[103.66957,1.32198]],[[103.66915,1.32208],[103.66992,1.32213]],[[103.66957,1.32198],[103.66751,1.32178]],[[103.66019,1.32602],[103.65929,1.32687]],[[103.65944,1.32702],[103.66153,1.32498],[103.66302,1.32343]],[[103.66291,1.32332],[103.66144,1.32486],[103.66019,1.32602]],[[103.66402,1.32228],[103.66371,1.32251],[103.66291,1.32332]],[[103.66302,1.32343],[103.66381,1.32263],[103.66411,1.3224]],[[103.66567,1.32202],[103.6663,1.322],[103.66915,1.32208]],[[103.66411,1.3224],[103.66462,1.32213],[103.66545,1.3219],[103.6666,1.32188],[103.66915,1.32208]],[[103.66751,1.32178],[103.666,1.3217],[103.66556,1.32172],[103.66519,1.32179],[103.66445,1.32204],[103.66402,1.32228]],[[103.65605,1.32989],[103.65517,1.33071]],[[103.65416,1.33191],[103.65838,1.32798]],[[103.65929,1.32687],[103.65749,1.32859],[103.65605,1.32989]],[[103.65838,1.32798],[103.65944,1.32702]],[[103.65517,1.33071],[103.65476,1.331],[103.65381,1.33185]],[[103.65517,1.33071],[103.64695,1.33866]],[[103.70306,1.32218],[103.70422,1.32208]],[[103.70427,1.32187],[103.70323,1.32198]],[[103.70422,1.32208],[103.70914,1.32157]],[[103.70912,1.32142],[103.70427,1.32187]],[[103.70288,1.32219],[103.70306,1.32218]],[[103.71108,1.32152],[103.70983,1.3214],[103.70912,1.32142]],[[103.70914,1.32157],[103.71042,1.32159],[103.71105,1.32168]],[[103.71613,1.32266],[103.71108,1.32152]],[[103.71105,1.32168],[103.71595,1.3228]],[[103.71996,1.32353],[103.71936,1.32337]],[[103.71931,1.32353],[103.71992,1.32367]],[[103.71666,1.3228],[103.71613,1.32266]],[[103.71936,1.32337],[103.71666,1.3228]],[[103.71595,1.3228],[103.71931,1.32353]],[[103.72301,1.32424],[103.72273,1.32418]],[[103.72601,1.3249],[103.72301,1.32424]],[[103.723,1.3244],[103.7231,1.32442]],[[103.7229,1.32438],[103.723,1.3244]],[[103.72243,1.32426],[103.7229,1.32438]],[[103.7219,1.32414],[103.72243,1.32426]],[[103.72273,1.32418],[103.72141,1.32387]],[[103.72139,1.32402],[103.7219,1.32414]],[[103.72117,1.32397],[103.72139,1.32402]],[[103.72141,1.32387],[103.72119,1.32382]],[[103.72119,1.32382],[103.71996,1.32353]],[[103.71992,1.32367],[103.72117,1.32397]],[[103.72943,1.32567],[103.7282,1.32539]],[[103.72769,1.32545],[103.72923,1.32582],[103.72945,1.32591]],[[103.7282,1.32539],[103.72773,1.32528]],[[103.72716,1.32515],[103.7265,1.325]],[[103.72744,1.32521],[103.72716,1.32515]],[[103.72773,1.32528],[103.72744,1.32521]],[[103.72741,1.32538],[103.72769,1.32545]],[[103.7265,1.325],[103.72601,1.3249]],[[103.81499,1.28219],[103.81528,1.28202]],[[103.8152,1.28189],[103.81493,1.28205]],[[103.81528,1.28202],[103.81705,1.28091]],[[103.81739,1.28053],[103.8152,1.28189]],[[103.81493,1.28205],[103.81373,1.28266],[103.8131,1.28291],[103.81166,1.2833],[103.81091,1.28341],[103.80824,1.28359]],[[103.80824,1.28375],[103.81015,1.28364],[103.81169,1.28345],[103.81242,1.28328],[103.8138,1.2828],[103.81499,1.28219]],[[103.80795,1.28377],[103.80824,1.28375]],[[103.80824,1.28359],[103.80795,1.28361]],[[103.7231,1.32442],[103.72741,1.32538]],[[103.733,1.32652],[103.7297,1.32574]],[[103.72945,1.32591],[103.73296,1.32669]],[[103.7297,1.32574],[103.72943,1.32567]],[[103.73332,1.32659],[103.733,1.32652]],[[103.73296,1.32669],[103.73329,1.32676]],[[103.73396,1.32674],[103.73332,1.32659]],[[103.73595,1.32708],[103.73396,1.32674]],[[103.73329,1.32676],[103.73613,1.32742],[103.73675,1.32745],[103.73734,1.32741],[103.73848,1.32714]],[[103.73959,1.32637],[103.73929,1.32657],[103.7387,1.32686],[103.73819,1.32705],[103.73736,1.32725],[103.73675,1.32729],[103.73614,1.32726],[103.73538,1.32711],[103.73396,1.32674]],[[103.73753,1.32708],[103.73712,1.32714],[103.73651,1.32715],[103.73595,1.32708]],[[103.81817,1.2802],[103.8185,1.28]],[[103.81705,1.28091],[103.81745,1.28067]],[[103.81792,1.28018],[103.81739,1.28053]],[[103.81745,1.28067],[103.81817,1.2802]],[[103.8213,1.27881],[103.82015,1.27899]],[[103.81882,1.2798],[103.8193,1.27952],[103.82034,1.27915]],[[103.8185,1.28],[103.81882,1.2798]],[[103.82015,1.27899],[103.81924,1.27936],[103.81792,1.28018]],[[103.82155,1.27894],[103.82255,1.27894]],[[103.8225,1.27874],[103.82164,1.27878]],[[103.82343,1.27856],[103.8225,1.27874]],[[103.82255,1.27894],[103.82326,1.27888]],[[103.82164,1.27878],[103.8213,1.27881]],[[103.82126,1.27896],[103.82155,1.27894]],[[103.82034,1.27915],[103.82126,1.27896]],[[103.82436,1.2782],[103.82389,1.2784]],[[103.82326,1.27888],[103.82355,1.27876]],[[103.82326,1.27888],[103.82359,1.27883]],[[103.82389,1.2784],[103.82343,1.27856]],[[103.82359,1.27883],[103.82393,1.27872]],[[103.82507,1.27749],[103.82488,1.27757]],[[103.8285,1.27547],[103.82774,1.27607]],[[103.82751,1.27654],[103.82902,1.27533]],[[103.82868,1.27531],[103.8285,1.27547]],[[103.82931,1.27479],[103.82868,1.27531]],[[103.82902,1.27533],[103.82954,1.27484]],[[103.83023,1.27419],[103.83153,1.27305],[103.83227,1.27258],[103.83278,1.27244],[103.8341,1.27242]],[[103.83289,1.27273],[103.83325,1.27267]],[[103.83435,1.27231],[103.83325,1.27227]],[[103.83325,1.27227],[103.83278,1.27228],[103.83257,1.27233],[103.83222,1.27245],[103.83177,1.27268],[103.83143,1.27292],[103.83011,1.27408]],[[103.83011,1.27408],[103.82931,1.27479]],[[103.82954,1.27484],[103.82974,1.27463]],[[103.82974,1.27463],[103.83023,1.27419]],[[103.74164,1.32495],[103.74105,1.32534]],[[103.74031,1.32608],[103.74211,1.32485]],[[103.74105,1.32534],[103.73985,1.32617]],[[103.73967,1.32652],[103.74031,1.32608]],[[103.73985,1.32617],[103.7397,1.32621]],[[103.73985,1.32617],[103.73975,1.32626]],[[103.73975,1.32626],[103.73959,1.32637]],[[103.73825,1.32691],[103.73753,1.32708]],[[103.73848,1.32714],[103.73876,1.32703]],[[103.7397,1.32621],[103.73881,1.32668],[103.73825,1.32691]],[[103.73876,1.32703],[103.73953,1.32662]],[[103.73953,1.32662],[103.73967,1.32652]],[[103.74582,1.32378],[103.74618,1.32368]],[[103.74618,1.32368],[103.74625,1.32365]],[[103.74625,1.32365],[103.7466,1.32352]],[[103.74634,1.32284],[103.7458,1.32285]],[[103.74535,1.3235],[103.74545,1.32348]],[[103.74545,1.32348],[103.74606,1.32335]],[[103.74605,1.32321],[103.74542,1.32333]],[[103.74507,1.3239],[103.74536,1.32415],[103.74564,1.32454]],[[103.74507,1.3239],[103.74562,1.32383]],[[103.74501,1.3239],[103.74507,1.3239]],[[103.74449,1.32368],[103.74535,1.3235]],[[103.74531,1.32336],[103.74482,1.32346]],[[103.74542,1.32333],[103.74531,1.32336]],[[103.74453,1.3239],[103.74501,1.3239]],[[103.74328,1.32394],[103.74164,1.32495]],[[103.74309,1.32388],[103.74243,1.3243],[103.74164,1.32495]],[[103.74211,1.32485],[103.74295,1.32428]],[[103.74295,1.32428],[103.74314,1.32427],[103.74336,1.32419]],[[103.74295,1.32428],[103.74333,1.32409]],[[103.74355,1.32381],[103.74328,1.32394]],[[103.74333,1.32409],[103.74359,1.32396]],[[103.74336,1.32419],[103.74362,1.32407]],[[103.74359,1.32396],[103.74449,1.32368]],[[103.74362,1.32407],[103.74453,1.3239]],[[103.74482,1.32346],[103.74444,1.32353],[103.74355,1.32381]],[[103.75083,1.32212],[103.75061,1.32218]],[[103.82666,1.27725],[103.82751,1.27654]],[[103.82774,1.27607],[103.82685,1.27675]],[[103.82685,1.27675],[103.82662,1.27693]],[[103.82532,1.27831],[103.82584,1.27796],[103.82666,1.27725]],[[103.82662,1.27693],[103.8259,1.2773],[103.82436,1.2782]],[[103.82393,1.27872],[103.82435,1.2786],[103.82509,1.27829],[103.82568,1.27797],[103.82666,1.27725]],[[103.74902,1.32259],[103.74871,1.32265]],[[103.74871,1.32276],[103.74903,1.3227]],[[103.74977,1.32239],[103.74902,1.32259]],[[103.74977,1.32239],[103.74962,1.32237],[103.74901,1.32247]],[[103.74903,1.3227],[103.75037,1.32242]],[[103.74991,1.32236],[103.74977,1.32239]],[[103.75061,1.32218],[103.74991,1.32236]],[[103.75037,1.32242],[103.75089,1.32227]],[[103.74719,1.3231],[103.74871,1.32276]],[[103.74871,1.32265],[103.74723,1.32297]],[[103.747,1.3234],[103.74778,1.3232]],[[103.74749,1.3227],[103.7468,1.3228]],[[103.7468,1.3228],[103.74634,1.32284]],[[103.74723,1.32297],[103.74605,1.32321]],[[103.74606,1.32335],[103.74719,1.3231]],[[103.7466,1.32352],[103.747,1.3234]],[[103.75089,1.32227],[103.75159,1.32207]],[[103.75289,1.32146],[103.75231,1.32163]],[[103.75223,1.32185],[103.75357,1.32141]],[[103.75231,1.32163],[103.75219,1.32167]],[[103.75159,1.32207],[103.75223,1.32185]],[[103.75219,1.32167],[103.75152,1.32191]],[[103.75152,1.32191],[103.75083,1.32212]],[[103.75403,1.32108],[103.75289,1.32146]],[[103.75357,1.32141],[103.75416,1.32121],[103.75443,1.32105]],[[103.75443,1.32105],[103.75471,1.32089]],[[103.75458,1.32079],[103.75432,1.32093]],[[103.75432,1.32093],[103.75403,1.32108]],[[103.75529,1.32014],[103.75488,1.32057],[103.75458,1.32079]],[[103.75471,1.32089],[103.75544,1.32021]],[[103.76131,1.31336],[103.76053,1.31414]],[[103.76145,1.31322],[103.76131,1.31336]],[[103.76142,1.31346],[103.76157,1.31331]],[[103.76398,1.3107],[103.76353,1.31115]],[[103.76344,1.31144],[103.76363,1.31125]],[[103.76353,1.31115],[103.76335,1.31132]],[[103.76335,1.31132],[103.76275,1.3119]],[[103.76297,1.31191],[103.76344,1.31144]],[[103.7622,1.31269],[103.76297,1.31191]],[[103.76275,1.3119],[103.76145,1.31322]],[[103.76157,1.31331],[103.7622,1.31269]],[[103.76058,1.3143],[103.76142,1.31346]],[[103.76027,1.3146],[103.76058,1.3143]],[[103.76053,1.31414],[103.76025,1.31442]],[[103.76051,1.31399],[103.76023,1.31427]],[[103.759,1.31607],[103.76027,1.3146]],[[103.76025,1.31442],[103.75847,1.31636],[103.75753,1.31747]],[[103.75832,1.31685],[103.759,1.31607]],[[103.75806,1.31715],[103.75832,1.31685]],[[103.75745,1.31783],[103.75765,1.31759]],[[103.75753,1.31747],[103.75734,1.31769]],[[103.75755,1.31727],[103.75746,1.31738]],[[103.75765,1.31759],[103.75806,1.31715]],[[103.75809,1.31662],[103.75787,1.31688]],[[103.76023,1.31427],[103.75809,1.31662]],[[103.75746,1.31738],[103.75722,1.31769]],[[103.75632,1.31894],[103.75601,1.31932]],[[103.75544,1.32021],[103.7571,1.31827]],[[103.75601,1.31932],[103.75529,1.32014]],[[103.75734,1.31769],[103.75632,1.31894]],[[103.7571,1.31827],[103.75745,1.31783]],[[103.83665,1.27248],[103.83986,1.27259]],[[103.83662,1.27236],[103.83435,1.27231]],[[103.8341,1.27242],[103.83665,1.27248]],[[103.84652,1.2724],[103.84532,1.27258],[103.84425,1.2726],[103.83662,1.27236]],[[103.83986,1.27259],[103.84426,1.27272],[103.84527,1.27269]],[[103.76363,1.31125],[103.76448,1.31039]],[[103.76433,1.31032],[103.76398,1.3107]],[[103.76486,1.30972],[103.76433,1.31032]],[[103.76448,1.31039],[103.76496,1.30987]],[[103.7683,1.30581],[103.76791,1.30612]],[[103.76791,1.30612],[103.76716,1.30677],[103.76673,1.30723]],[[103.76708,1.30713],[103.76766,1.30658],[103.76809,1.30625]],[[103.76673,1.30723],[103.76601,1.30823]],[[103.76607,1.30838],[103.76676,1.30744],[103.76708,1.30713]],[[103.76673,1.30723],[103.76659,1.3073],[103.7662,1.30775]],[[103.76586,1.30865],[103.76607,1.30838]],[[103.76601,1.30823],[103.76578,1.30854]],[[103.76578,1.30854],[103.76486,1.30972]],[[103.76496,1.30987],[103.76586,1.30865]],[[103.77095,1.30416],[103.76954,1.30494]],[[103.76962,1.30508],[103.77101,1.30434]],[[103.76902,1.30549],[103.76962,1.30508]],[[103.76954,1.30494],[103.76895,1.30535]],[[103.76809,1.30625],[103.76862,1.30581]],[[103.76862,1.30581],[103.76902,1.30549]],[[103.76895,1.30535],[103.7683,1.30581]],[[103.77008,1.30559],[103.77041,1.30574]],[[103.77041,1.30574],[103.77068,1.30574],[103.77086,1.30567],[103.77113,1.30543]],[[103.77338,1.30299],[103.7724,1.30351],[103.7714,1.30396]],[[103.77142,1.30415],[103.77198,1.30392]],[[103.7714,1.30396],[103.77095,1.30416]],[[103.77101,1.30434],[103.77142,1.30415]],[[103.77745,1.30063],[103.77648,1.30122]],[[103.77659,1.30136],[103.77796,1.30056]],[[103.77796,1.30056],[103.77826,1.30037]],[[103.77859,1.29996],[103.77745,1.30063]],[[103.77879,1.29983],[103.77859,1.29996]],[[103.77826,1.30037],[103.77866,1.30012]],[[103.77866,1.30012],[103.7789,1.29998]],[[103.77886,1.29978],[103.77879,1.29983]],[[103.78003,1.29907],[103.77886,1.29978]],[[103.7789,1.29998],[103.78123,1.29859]],[[103.78115,1.29843],[103.78003,1.29907]],[[103.78423,1.2962],[103.78339,1.29704],[103.78281,1.29748]],[[103.7823,1.29777],[103.78177,1.29809]],[[103.78185,1.29825],[103.78239,1.29794]],[[103.78177,1.29809],[103.78115,1.29843]],[[103.78123,1.29859],[103.78185,1.29825]],[[103.78281,1.29748],[103.7823,1.29777]],[[103.78239,1.29794],[103.78311,1.29752]],[[103.78311,1.29752],[103.7835,1.29722]],[[103.78514,1.2958],[103.78537,1.29565]],[[103.78453,1.29614],[103.78575,1.29476]],[[103.78524,1.29502],[103.78438,1.29602]],[[103.78466,1.29627],[103.78496,1.29596]],[[103.78438,1.29632],[103.78453,1.29614]],[[103.78438,1.29602],[103.78423,1.2962]],[[103.7835,1.29722],[103.78402,1.29674],[103.78438,1.29632]],[[103.78445,1.2956],[103.78425,1.29592]],[[103.78568,1.29451],[103.78524,1.29502]],[[103.78609,1.29399],[103.78568,1.29451]],[[103.78575,1.29476],[103.78616,1.29423]],[[103.78777,1.29246],[103.78652,1.29352],[103.78609,1.29399]],[[103.78616,1.29423],[103.7865,1.29382],[103.78723,1.29308],[103.78781,1.29261],[103.78845,1.29221]],[[103.78574,1.29547],[103.78614,1.29531]],[[103.78845,1.29221],[103.79037,1.29101]],[[103.78976,1.29115],[103.78871,1.29183]],[[103.78871,1.29183],[103.78851,1.29195]],[[103.78851,1.29195],[103.78777,1.29246]],[[103.80795,1.28361],[103.80204,1.28397]],[[103.80207,1.28412],[103.80795,1.28377]],[[103.80131,1.28421],[103.80207,1.28412]],[[103.80204,1.28397],[103.80124,1.28406]],[[103.79896,1.2854],[103.79968,1.28498]],[[103.79825,1.28575],[103.79971,1.28475],[103.80023,1.2845],[103.80076,1.28432],[103.80131,1.28421]],[[103.80124,1.28406],[103.80017,1.28436],[103.79964,1.28463],[103.79866,1.28527]],[[103.80125,1.28482],[103.80154,1.28478],[103.80174,1.28469]]]};
 
-// ─── Road data ────────────────────────────────────────────
-const ROADS = {
-  expressways: [
-    { id:"aye", name:"Ayer Rajah Expressway",         short:"AYE", color:"#d63c2f", osm_name:"Ayer Rajah Expressway",        osm_ref:"AYE", length_km:40, opened:1988, facts:["The Ayer Rajah Expressway (AYE) stretches approximately 40km across Singapore's southern corridor, connecting Jurong in the west to the city centre.","It passes through some of Singapore's most significant industrial and educational zones, including the National University of Singapore and one-north.","The AYE was progressively built in stages from 1988, making it one of Singapore's longer expressway construction projects."], hashtags:"#AYE #AyerRajahExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"bke", name:"Bukit Timah Expressway",        short:"BKE", color:"#e8a020", osm_name:"Bukit Timah Expressway",       osm_ref:"BKE", length_km:11, opened:1986, facts:["The Bukit Timah Expressway (BKE) is one of Singapore's shorter expressways at approximately 11km, running north from the PIE junction toward Woodlands.","It passes alongside the Bukit Timah Nature Reserve, one of the last remaining primary rainforest patches in Singapore.","Opened in 1986, the BKE provides a key corridor linking the central region to the causeway and Johor Bahru."], hashtags:"#BKE #BukitTimahExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"cte", name:"Central Expressway",            short:"CTE", color:"#0a5c4a", osm_name:"Central Expressway",            osm_ref:"CTE", length_km:17, opened:1991, facts:["The Central Expressway (CTE) is Singapore's primary north-south spine, running approximately 17km from Toa Payoh through the city centre.","It includes Singapore's longest road tunnel, passing beneath the Bukit Timah area and the Singapore River district.","The CTE is notorious for being one of Singapore's most congested expressways during peak hours, particularly at its city-bound tunnels."], hashtags:"#CTE #CentralExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"ecp", name:"East Coast Parkway",            short:"ECP", color:"#1e4d8c", osm_name:"East Coast Parkway",            osm_ref:"ECP", length_km:19, opened:1981, facts:["The East Coast Parkway (ECP) was Singapore's first expressway, opened in 1981 and running approximately 19km along the southern coastline.","Much of the land beneath the ECP is reclaimed — the shoreline here did not exist before the 1970s land reclamation programme.","The ECP connects the CBD to Changi Airport and passes alongside East Coast Park, one of Singapore's most popular recreational corridors."], hashtags:"#ECP #EastCoastParkway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"kje", name:"Kranji Expressway",             short:"KJE", color:"#8832c8", osm_name:"Kranji Expressway",             osm_ref:"KJE", length_km:9,  opened:1994, facts:["The Kranji Expressway (KJE) is Singapore's shortest expressway at approximately 9km, connecting Choa Chu Kang to Woodlands and the BKE.","It passes through the northwestern corridor of Singapore, serving new towns like Bukit Panjang and Choa Chu Kang.","Opened in 1994, the KJE was built to support rapid population growth in Singapore's western new towns during the 1990s."], hashtags:"#KJE #KranjiExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"kpe", name:"Kallang–Paya Lebar Expressway", short:"KPE", color:"#d4541a", osm_name:"Kallang–Paya Lebar Expressway", osm_ref:"KPE", length_km:12, opened:2008, facts:["The Kallang–Paya Lebar Expressway (KPE) opened in 2008 and includes the world's longest underground expressway tunnel at the time of its completion.","At approximately 12km in total, around 9km of the KPE runs underground, making it a significant feat of tunnelling engineering in Singapore.","The KPE connects the eastern regions of Singapore to the city, providing relief to the heavily trafficked ECP and CTE corridors."], hashtags:"#KPE #KallangPayaLebarExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"mce", name:"Marina Coastal Expressway",     short:"MCE", color:"#c8328a", osm_name:"Marina Coastal Expressway",     osm_ref:"MCE", length_km:5,  opened:2013, facts:["The Marina Coastal Expressway (MCE) is Singapore's newest and shortest expressway, opened in 2013 at approximately 5km in length.","It runs almost entirely underground, connecting the ECP to the AYE beneath the Marina Bay reclaimed land area.","The MCE completed Singapore's expressway ring road system, closing the final gap in the city's highway network."], hashtags:"#MCE #MarinaCoastalExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"pie", name:"Pan Island Expressway",         short:"PIE", color:"#7a1535", osm_name:"Pan Island Expressway",          osm_ref:"PIE", length_km:42, opened:1966, facts:["The Pan Island Expressway (PIE) is Singapore's longest expressway at approximately 42km, stretching from Tuas in the west to Changi Airport in the east.","Construction began in 1966, making it one of the earliest expressways built as Singapore rapidly developed its road infrastructure.","The PIE connects virtually every other expressway in Singapore, making it the backbone of the island's highway network."], hashtags:"#PIE #PanIslandExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"sle", name:"Seletar Expressway",            short:"SLE", color:"#2a7c6f", osm_name:"Seletar Expressway",             osm_ref:"SLE", length_km:13, opened:1994, facts:["The Seletar Expressway (SLE) runs approximately 13km through Singapore's north, connecting Woodlands to the TPE and the northeastern regions.","It passes close to Seletar Airport, Singapore's general aviation airport and one of the oldest airfields in Southeast Asia.","The SLE opened in 1994 and forms a key part of the northern expressway loop alongside the BKE and TPE."], hashtags:"#SLE #SeletarExpressway #Singapore #SingaporeRoads #SGExpressway" },
-    { id:"tpe", name:"Tampines Expressway",           short:"TPE", color:"#4a7a1e", osm_name:"Tampines Expressway",            osm_ref:"TPE", length_km:15, opened:1991, facts:["The Tampines Expressway (TPE) stretches approximately 15km through Singapore's northeastern corridor, connecting the SLE to Changi.","It serves the large residential towns of Sengkang, Punggol, and Tampines, some of Singapore's most densely populated new towns.","The TPE opened in 1991 and has become a critical artery as the northeastern region of Singapore has grown significantly in population."], hashtags:"#TPE #TampinesExpressway #Singapore #SingaporeRoads #SGExpressway" }
-  ],
-  major_roads: [],
-  minor_roads: []
+// ── CORRECTED direct interchange connections only ──
+// AYE↔PIE (Jln Buroh/Ayer Rajah), AYE↔MCE (Keppel/Marina), AYE↔ECP (Fort Rd tunnel area)
+// BKE↔PIE (Chantek), BKE↔SLE (Woodlands Ave 2), BKE↔KJE (Mandai/Upper BT)
+// CTE↔PIE (Thomson/Moulmein), CTE↔SLE (Yio Chu Kang Ave 2 junction)
+// ECP↔MCE (Marina Blvd), ECP↔KPE (Tanjong Rhu)
+// KJE↔BKE (Upper Bukit Timah), KJE↔PIE (Choa Chu Kang), KJE↔SLE (Woodlands)
+// KPE↔ECP (Tanjong Rhu), KPE↔SLE (Punggol), KPE↔TPE (Tampines)
+// MCE↔AYE (Keppel), MCE↔ECP (Marina)
+// PIE↔AYE, PIE↔BKE, PIE↔CTE, PIE↔KJE, PIE↔SLE, PIE↔TPE (Tampines Ave 10)
+// SLE↔BKE, SLE↔KJE, SLE↔KPE, SLE↔PIE, SLE↔TPE (Tampines/Seletar)
+// TPE↔KPE, TPE↔PIE, TPE↔SLE
+const CONNECTIONS={
+  "AYE":["ECP","MCE","PIE"],
+  "BKE":["KJE","PIE","SLE"],
+  "CTE":["PIE","SLE"],
+  "ECP":["AYE","KPE","MCE"],
+  "KJE":["BKE","PIE","SLE"],
+  "KPE":["ECP","SLE","TPE"],
+  "MCE":["AYE","ECP"],
+  "PIE":["AYE","BKE","CTE","KJE","SLE","TPE"],
+  "SLE":["BKE","CTE","KJE","KPE","PIE","TPE"],
+  "TPE":["KPE","PIE","SLE"]
 };
 
-// Singapore planning regions with approx label positions
-const SG_REGIONS = [
-  { name: "Central Region",   latlng: [1.3200, 103.8350], color: "#6a6560" },
-  { name: "North Region",     latlng: [1.4200, 103.8050], color: "#6a6560" },
-  { name: "North-East Region",latlng: [1.3850, 103.8950], color: "#6a6560" },
-  { name: "East Region",      latlng: [1.3350, 103.9600], color: "#6a6560" },
-  { name: "West Region",      latlng: [1.3350, 103.6900], color: "#6a6560" }
+const AREA_MAP={
+  "TPE":["Ang Mo Kio","Changi","Pasir Ris","Paya Lebar","Punggol","Seletar","Sengkang","Tampines"],
+  "AYE":["Boon Lay","Bukit Merah","Clementi","Downtown Core","Jurong East","Jurong West","Pioneer","Queenstown","Tuas"],
+  "ECP":["Bedok","Changi","Downtown Core","Kallang","Marina East","Marine Parade","Tampines"],
+  "KPE":["Geylang","Hougang","Kallang","Marina East","Pasir Ris","Paya Lebar","Sengkang"],
+  "PIE":["Bedok","Bukit Batok","Bukit Panjang","Bukit Timah","Central Water Catchment","Changi","Clementi","Geylang","Jurong East","Jurong West","Kallang","Novena","Pioneer","Tampines","Tengah","Toa Payoh","Tuas","Western Water Catchment"],
+  "BKE":["Bukit Panjang","Bukit Timah","Central Water Catchment","Mandai","Sungei Kadut","Woodlands"],
+  "SLE":["Ang Mo Kio","Central Water Catchment","Mandai","Sengkang","Sungei Kadut","Woodlands","Yishun"],
+  "KJE":["Bukit Panjang","Choa Chu Kang","Sungei Kadut","Tengah","Western Water Catchment"],
+  "CTE":["Ang Mo Kio","Bishan","Bukit Merah","Kallang","Museum","Newton","Novena","Orchard","Outram","Sengkang","Serangoon","Singapore River","Toa Payoh"],
+  "MCE":["Downtown Core","Marina East","Marina South","Straits View"]
+};
+
+const EXP_COLOR={};
+
+const ROADS={
+  expressways:[
+    {id:"aye",name:"Ayer Rajah Expressway",        short:"AYE",color:"#d63c2f",length_km:40,opened:1988,facts:["The Ayer Rajah Expressway (AYE) stretches approximately 40km across Singapore's southern corridor, connecting Jurong in the west to the city centre.","It passes through some of Singapore's most significant industrial and educational zones, including the National University of Singapore and one-north.","The AYE was progressively built in stages from 1988, making it one of Singapore's longer expressway construction projects."],hashtags:"#AYE #AyerRajahExpressway #Singapore #SingaporeRoads"},
+    {id:"bke",name:"Bukit Timah Expressway",       short:"BKE",color:"#e8a020",length_km:11,opened:1986,facts:["The Bukit Timah Expressway (BKE) is one of Singapore's shorter expressways at approximately 11km, running north from the PIE junction toward Woodlands.","It passes alongside the Bukit Timah Nature Reserve, one of the last remaining primary rainforest patches in Singapore.","Opened in 1986, the BKE provides a key corridor linking the central region to the causeway and Johor Bahru."],hashtags:"#BKE #BukitTimahExpressway #Singapore #SingaporeRoads"},
+    {id:"cte",name:"Central Expressway",           short:"CTE",color:"#0a5c4a",length_km:17,opened:1991,facts:["The Central Expressway (CTE) is Singapore's primary north-south spine, running approximately 17km from Toa Payoh through the city centre.","It includes Singapore's longest road tunnel, passing beneath the Bukit Timah area and the Singapore River district.","The CTE is one of Singapore's most congested expressways during peak hours, particularly at its city-bound tunnels."],hashtags:"#CTE #CentralExpressway #Singapore #SingaporeRoads"},
+    {id:"ecp",name:"East Coast Parkway",           short:"ECP",color:"#1e4d8c",length_km:19,opened:1981,facts:["The East Coast Parkway (ECP) was Singapore's first expressway, opened in 1981 and running approximately 19km along the southern coastline.","Much of the land beneath the ECP is reclaimed — the shoreline here did not exist before the 1970s land reclamation programme.","The ECP connects the CBD to Changi Airport and passes alongside East Coast Park, one of Singapore's most popular recreational corridors."],hashtags:"#ECP #EastCoastParkway #Singapore #SingaporeRoads"},
+    {id:"kje",name:"Kranji Expressway",            short:"KJE",color:"#8832c8",length_km:9, opened:1994,facts:["The Kranji Expressway (KJE) is Singapore's shortest expressway at approximately 9km, connecting Choa Chu Kang to Woodlands and the BKE.","It passes through the northwestern corridor of Singapore, serving new towns like Bukit Panjang and Choa Chu Kang.","Opened in 1994, the KJE was built to support rapid population growth in Singapore's western new towns during the 1990s."],hashtags:"#KJE #KranjiExpressway #Singapore #SingaporeRoads"},
+    {id:"kpe",name:"Kallang-Paya Lebar Expressway",short:"KPE",color:"#d4541a",length_km:12,opened:2008,facts:["The Kallang-Paya Lebar Expressway (KPE) opened in 2008 and includes the world's longest underground expressway tunnel at the time of its completion.","At approximately 12km in total, around 9km of the KPE runs underground, making it a significant feat of tunnelling engineering.","The KPE connects the eastern regions of Singapore to the city, providing relief to the heavily trafficked ECP and CTE corridors."],hashtags:"#KPE #KallangPayaLebarExpressway #Singapore #SingaporeRoads"},
+    {id:"mce",name:"Marina Coastal Expressway",    short:"MCE",color:"#c8328a",length_km:5, opened:2013,facts:["The Marina Coastal Expressway (MCE) is Singapore's newest and shortest expressway, opened in 2013 at approximately 5km in length.","It runs almost entirely underground, connecting the ECP to the AYE beneath the Marina Bay reclaimed land area.","The MCE completed Singapore's expressway ring road system, closing the final gap in the city's highway network."],hashtags:"#MCE #MarinaCoastalExpressway #Singapore #SingaporeRoads"},
+    {id:"pie",name:"Pan Island Expressway",        short:"PIE",color:"#7a1535",length_km:42,opened:1966,facts:["The Pan Island Expressway (PIE) is Singapore's longest expressway at approximately 42km, stretching from Tuas in the west to Changi Airport in the east.","Construction began in 1966, making it one of the earliest expressways built as Singapore rapidly developed its road infrastructure.","The PIE connects virtually every other expressway in Singapore, making it the backbone of the island's highway network."],hashtags:"#PIE #PanIslandExpressway #Singapore #SingaporeRoads"},
+    {id:"sle",name:"Seletar Expressway",           short:"SLE",color:"#2a7c6f",length_km:13,opened:1994,facts:["The Seletar Expressway (SLE) runs approximately 13km through Singapore's north, connecting Woodlands to the TPE and the northeastern regions.","It passes close to Seletar Airport, Singapore's general aviation airport and one of the oldest airfields in Southeast Asia.","The SLE opened in 1994 and forms a key part of the northern expressway loop alongside the BKE and TPE."],hashtags:"#SLE #SeletarExpressway #Singapore #SingaporeRoads"},
+    {id:"tpe",name:"Tampines Expressway",          short:"TPE",color:"#4a7a1e",length_km:15,opened:1991,facts:["The Tampines Expressway (TPE) stretches approximately 15km through Singapore's northeastern corridor, connecting the SLE to Changi.","It serves the large residential towns of Sengkang, Punggol, and Tampines, some of Singapore's most densely populated new towns.","The TPE opened in 1991 and has become a critical artery as the northeastern region of Singapore has grown significantly in population."],hashtags:"#TPE #TampinesExpressway #Singapore #SingaporeRoads"}
+  ],
+  major_roads:[],
+  minor_roads:[]
+};
+ROADS.expressways.forEach(function(r){ EXP_COLOR[r.short]=r.color; });
+
+function textColor(hex){
+  var h=hex.replace('#','');
+  var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return (0.299*r+0.587*g+0.114*b)/255<0.5?'#ffffff':'#0a0a0a';
+}
+
+// ── STATE ──
+let map;
+const roadState={};
+let activeRoad=null, activeItem=null;
+let labelsVisible=false;           // labels start OFF
+let areaMarkers=[];                // all area label markers
+let areaLayers=[];                 // boundary highlight layers
+let areaMarkerMap={};              // name → marker element
+
+const SG_BOUNDARIES={"type":"FeatureCollection","features":[{"type":"Feature","properties":{"n":"Bukit Timah","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7964,1.3489],[103.7934,1.3495],[103.7904,1.3489],[103.7871,1.349],[103.788,1.3461],[103.7857,1.3439],[103.7824,1.3427],[103.7792,1.3424],[103.7763,1.3436],[103.7726,1.346],[103.7704,1.349],[103.7673,1.3473],[103.7637,1.3468],[103.7655,1.3443],[103.7649,1.341],[103.7643,1.3375],[103.7656,1.3345],[103.7668,1.3313],[103.7699,1.3297],[103.7751,1.3267],[103.7729,1.3245],[103.7711,1.3219],[103.7712,1.3187],[103.7751,1.3159],[103.7776,1.3141],[103.7809,1.3125],[103.7839,1.3114],[103.7858,1.3138],[103.789,1.3137],[103.7908,1.3112],[103.7931,1.3134],[103.7961,1.3121],[103.7974,1.3088],[103.8011,1.3081],[103.8034,1.3102],[103.8043,1.3135],[103.8061,1.3161],[103.809,1.3187],[103.8117,1.3203],[103.8133,1.323],[103.8138,1.3265],[103.8146,1.3295],[103.8164,1.3325],[103.8183,1.3349],[103.8161,1.3372],[103.8133,1.3384],[103.8099,1.3409],[103.8068,1.3413],[103.8037,1.3418],[103.8014,1.3443],[103.7985,1.3474],[103.7964,1.3489]]]}},{"type":"Feature","properties":{"n":"Clementi","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7587,1.2992],[103.7613,1.3011],[103.7637,1.2984],[103.7651,1.2954],[103.7664,1.2927],[103.7692,1.294],[103.7696,1.2973],[103.7699,1.3004],[103.7712,1.3035],[103.7713,1.3066],[103.7719,1.3098],[103.7722,1.3133],[103.7718,1.3164],[103.7708,1.3205],[103.7721,1.3235],[103.7746,1.3252],[103.7706,1.3294],[103.7681,1.3312],[103.7651,1.3321],[103.7609,1.3347],[103.7577,1.3366],[103.755,1.3381],[103.7513,1.3402],[103.7489,1.3366],[103.7494,1.3323],[103.7498,1.329],[103.7518,1.3236],[103.7514,1.3206],[103.7498,1.3178],[103.7476,1.3137],[103.7476,1.3106],[103.7504,1.3091],[103.7534,1.3068],[103.7552,1.3025],[103.7573,1.2984],[103.7587,1.2992]]]}},{"type":"Feature","properties":{"n":"Jurong East","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7573,1.2984],[103.7553,1.3023],[103.7534,1.3068],[103.7511,1.3087],[103.7481,1.3093],[103.7475,1.3128],[103.7494,1.3171],[103.7512,1.3202],[103.7518,1.3236],[103.7502,1.3263],[103.7497,1.3294],[103.7492,1.3338],[103.7487,1.3391],[103.7453,1.3436],[103.7424,1.3448],[103.7392,1.3452],[103.7362,1.3468],[103.7321,1.3511],[103.7284,1.3535],[103.7281,1.3503],[103.7282,1.3444],[103.7249,1.3449],[103.7219,1.3449],[103.7215,1.3418],[103.7243,1.3384],[103.725,1.3343],[103.7249,1.3311],[103.7249,1.3278],[103.7218,1.3241],[103.7202,1.321],[103.7202,1.318],[103.7196,1.3148],[103.7156,1.3145],[103.7124,1.3143],[103.7101,1.3117],[103.7098,1.3083],[103.7114,1.3053],[103.7114,1.3011],[103.7113,1.2974],[103.7157,1.2996],[103.7188,1.2995],[103.722,1.2995],[103.7199,1.3021],[103.717,1.3045],[103.7146,1.3063],[103.7122,1.3081],[103.7158,1.3084],[103.7205,1.3045],[103.7236,1.3022],[103.7268,1.3007],[103.7297,1.3016],[103.7326,1.3009],[103.7356,1.3001],[103.7386,1.2994],[103.7424,1.3003],[103.7443,1.298],[103.7472,1.2969],[103.7502,1.2966],[103.7543,1.2971],[103.7573,1.2984]]]}},{"type":"Feature","properties":{"n":"Novena","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.836,1.3417],[103.833,1.3404],[103.8299,1.3407],[103.8268,1.3412],[103.8234,1.3407],[103.8204,1.3395],[103.8189,1.3367],[103.8175,1.3338],[103.8146,1.3295],[103.8138,1.3265],[103.8134,1.3233],[103.8165,1.3229],[103.8201,1.3224],[103.824,1.3213],[103.8269,1.3203],[103.8299,1.3193],[103.8331,1.3182],[103.8368,1.3158],[103.8391,1.3131],[103.8417,1.3117],[103.8451,1.3131],[103.8467,1.3159],[103.8493,1.3175],[103.8521,1.3189],[103.8548,1.3204],[103.8572,1.3227],[103.8601,1.3256],[103.8622,1.3286],[103.8592,1.3299],[103.8562,1.3291],[103.8526,1.3294],[103.8494,1.3297],[103.8442,1.3296],[103.8412,1.3291],[103.8387,1.3317],[103.8374,1.3344],[103.8373,1.3375],[103.836,1.3417]]]}},{"type":"Feature","properties":{"n":"Queenstown","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7983,1.2666],[103.8003,1.2701],[103.8019,1.2727],[103.8021,1.2758],[103.8031,1.2787],[103.8019,1.2815],[103.8019,1.2847],[103.8044,1.2875],[103.8066,1.2898],[103.8087,1.2922],[103.812,1.2921],[103.8154,1.2915],[103.8162,1.2952],[103.813,1.2967],[103.81,1.2971],[103.8086,1.3001],[103.8056,1.3003],[103.8036,1.3035],[103.8032,1.3067],[103.8003,1.3087],[103.7977,1.3073],[103.796,1.3099],[103.794,1.3128],[103.7913,1.3115],[103.7891,1.3136],[103.7868,1.3157],[103.7856,1.3128],[103.7816,1.3123],[103.7787,1.3131],[103.7762,1.3152],[103.7729,1.3175],[103.772,1.3142],[103.772,1.3101],[103.7713,1.3066],[103.7712,1.3035],[103.7699,1.3006],[103.7697,1.2975],[103.7694,1.2944],[103.7676,1.2919],[103.7653,1.2949],[103.7637,1.2984],[103.7623,1.3013],[103.7587,1.2992],[103.761,1.2966],[103.7628,1.2942],[103.7611,1.2914],[103.7634,1.289],[103.7661,1.2874],[103.7692,1.2855],[103.7723,1.2837],[103.77,1.2798],[103.7667,1.2798],[103.7639,1.2815],[103.7613,1.283],[103.758,1.285],[103.7545,1.2855],[103.7513,1.2824],[103.7525,1.2791],[103.7561,1.277],[103.759,1.2753],[103.7617,1.2736],[103.7651,1.2716],[103.7679,1.2699],[103.7707,1.2682],[103.7723,1.2709],[103.7741,1.274],[103.7759,1.2771],[103.7864,1.2729],[103.779,1.2599],[103.7855,1.255],[103.7936,1.2686],[103.7983,1.2666]]]}},{"type":"Feature","properties":{"n":"Tanglin","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8239,1.3004],[103.8235,1.3034],[103.8254,1.3058],[103.8278,1.3076],[103.8275,1.3106],[103.8298,1.3129],[103.8323,1.315],[103.8347,1.3169],[103.832,1.3186],[103.8288,1.3196],[103.8254,1.3207],[103.8218,1.3219],[103.818,1.3228],[103.8148,1.3231],[103.8125,1.3211],[103.8095,1.3191],[103.8069,1.3168],[103.8048,1.3146],[103.8037,1.3112],[103.8023,1.3072],[103.8036,1.3041],[103.8046,1.3008],[103.8077,1.3],[103.8096,1.2975],[103.813,1.2967],[103.8166,1.2968],[103.8179,1.2939],[103.8216,1.2936],[103.8243,1.292],[103.8274,1.2926],[103.8305,1.2922],[103.8305,1.2953],[103.83,1.2986],[103.827,1.2991],[103.8242,1.3003],[103.8239,1.3004]]]}},{"type":"Feature","properties":{"n":"Geylang","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9018,1.3097],[103.9042,1.3115],[103.9067,1.3133],[103.9055,1.3161],[103.9049,1.3193],[103.9053,1.3224],[103.9057,1.3256],[103.9054,1.3286],[103.9033,1.3309],[103.901,1.3332],[103.8988,1.3353],[103.8962,1.3378],[103.8939,1.3357],[103.8911,1.3342],[103.8877,1.3333],[103.8847,1.3326],[103.8815,1.3319],[103.8785,1.3311],[103.8735,1.3295],[103.8689,1.3279],[103.8711,1.3258],[103.8732,1.323],[103.8751,1.3206],[103.8748,1.3174],[103.8749,1.3141],[103.8756,1.3104],[103.8782,1.3079],[103.8811,1.3068],[103.8835,1.3049],[103.8874,1.3059],[103.89,1.3077],[103.8928,1.3092],[103.8961,1.3095],[103.8993,1.3095],[103.9018,1.3097]]]}},{"type":"Feature","properties":{"n":"Paya Lebar","r":"East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9185,1.3813],[103.9157,1.3801],[103.9128,1.3782],[103.9101,1.3759],[103.9089,1.373],[103.9071,1.3674],[103.906,1.3645],[103.9042,1.3612],[103.9025,1.3581],[103.8998,1.3565],[103.8976,1.3544],[103.8951,1.3525],[103.8939,1.3497],[103.8957,1.347],[103.8989,1.3457],[103.8988,1.3421],[103.8999,1.3393],[103.9047,1.3392],[103.9082,1.3398],[103.9103,1.3421],[103.913,1.3444],[103.9154,1.3426],[103.9182,1.3449],[103.9209,1.3466],[103.9242,1.348],[103.9276,1.353],[103.9303,1.3579],[103.9309,1.3614],[103.9309,1.3661],[103.9304,1.371],[103.9311,1.3739],[103.9299,1.3767],[103.927,1.3777],[103.9239,1.3784],[103.9211,1.3794],[103.9185,1.3813]]]}},{"type":"Feature","properties":{"n":"Ang Mo Kio","r":"North-East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8572,1.3965],[103.8541,1.3977],[103.851,1.3966],[103.8478,1.3966],[103.8438,1.3965],[103.8405,1.396],[103.8365,1.395],[103.8336,1.3942],[103.8297,1.3933],[103.8266,1.3929],[103.8234,1.3931],[103.8188,1.3943],[103.818,1.3905],[103.8169,1.3876],[103.8193,1.3857],[103.8189,1.3827],[103.8209,1.3804],[103.8235,1.3789],[103.8265,1.3795],[103.8264,1.3764],[103.8264,1.3733],[103.828,1.3708],[103.8283,1.3675],[103.8319,1.3677],[103.8351,1.3667],[103.8393,1.3653],[103.8423,1.3644],[103.8453,1.3641],[103.8484,1.3632],[103.8514,1.3611],[103.8536,1.359],[103.8551,1.3564],[103.8578,1.3592],[103.8592,1.3634],[103.8604,1.3666],[103.8609,1.3698],[103.8596,1.3733],[103.8586,1.3762],[103.8583,1.3792],[103.8584,1.3828],[103.8582,1.3876],[103.8581,1.3911],[103.8578,1.3947],[103.8572,1.3965]]]}},{"type":"Feature","properties":{"n":"Boon Lay","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7098,1.3078],[103.7101,1.3111],[103.7105,1.3141],[103.7137,1.3143],[103.7168,1.3145],[103.7197,1.3156],[103.7203,1.319],[103.7199,1.3223],[103.7192,1.3254],[103.7204,1.3282],[103.7211,1.3317],[103.7178,1.3307],[103.7148,1.3298],[103.7117,1.3289],[103.7085,1.3282],[103.7055,1.3278],[103.7016,1.3278],[103.6985,1.3278],[103.6965,1.3227],[103.6963,1.3183],[103.6959,1.3152],[103.6925,1.3153],[103.6895,1.3147],[103.6862,1.3128],[103.6811,1.3106],[103.6827,1.3077],[103.6831,1.3047],[103.6834,1.3016],[103.6854,1.2994],[103.6886,1.2998],[103.6916,1.3001],[103.6937,1.3022],[103.6936,1.3053],[103.6953,1.3027],[103.6962,1.2998],[103.6994,1.2995],[103.6995,1.3025],[103.698,1.3052],[103.6953,1.3079],[103.698,1.3066],[103.7014,1.3041],[103.7056,1.302],[103.7077,1.3043],[103.7084,1.3073],[103.7098,1.3078]]]}},{"type":"Feature","properties":{"n":"Changi","r":"East Region"},"geometry":{"type":"Polygon","coordinates":[[[104.0336,1.3608],[104.032,1.3633],[104.0296,1.3652],[104.0273,1.3671],[104.0249,1.369],[104.0225,1.3708],[104.0201,1.3727],[104.0177,1.3745],[104.0153,1.3764],[104.0129,1.3782],[104.0101,1.3804],[104.0074,1.3815],[104.0077,1.3785],[104.0083,1.3755],[104.0052,1.3765],[104.0038,1.3796],[104.0024,1.3824],[104.001,1.3851],[103.9997,1.3881],[103.9975,1.3902],[103.9946,1.3915],[103.9912,1.3921],[103.9882,1.3931],[103.9842,1.3935],[103.9811,1.3935],[103.9782,1.3926],[103.9753,1.3917],[103.9734,1.3893],[103.9746,1.386],[103.9767,1.3823],[103.9783,1.3794],[103.9749,1.374],[103.9789,1.3725],[103.9788,1.3693],[103.9762,1.3672],[103.9749,1.3644],[103.9722,1.3619],[103.97,1.3597],[103.9692,1.3567],[103.9681,1.3539],[103.9651,1.353],[103.9653,1.3497],[103.9675,1.3463],[103.9691,1.3437],[103.9709,1.3412],[103.9749,1.3391],[103.9795,1.3371],[103.983,1.3352],[103.9826,1.3319],[103.9807,1.3275],[103.9795,1.3247],[103.9798,1.3214],[103.9842,1.3192],[103.9846,1.316],[103.9852,1.313],[103.9895,1.3137],[103.993,1.3134],[103.9963,1.3121],[103.9992,1.3108],[104.0031,1.3106],[104.0061,1.3115],[104.0101,1.3098],[104.0132,1.3099],[104.0151,1.3123],[104.0153,1.3155],[104.0164,1.3198],[104.0178,1.3233],[104.0215,1.3318],[104.0256,1.3416],[104.0292,1.3503],[104.0311,1.3547],[104.0315,1.3578],[104.0336,1.3608]]]}},{"type":"Feature","properties":{"n":"Choa Chu Kang","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7466,1.4054],[103.7439,1.4027],[103.7432,1.3994],[103.7427,1.3963],[103.7413,1.3934],[103.7402,1.3903],[103.7414,1.3869],[103.7377,1.3833],[103.7352,1.3812],[103.7327,1.3789],[103.735,1.3764],[103.7376,1.3743],[103.7413,1.3727],[103.7445,1.372],[103.7485,1.3691],[103.7507,1.3711],[103.7525,1.3743],[103.7545,1.3767],[103.7579,1.3782],[103.7608,1.3795],[103.7594,1.383],[103.7574,1.3853],[103.7557,1.3878],[103.7532,1.3903],[103.7526,1.3942],[103.7521,1.3973],[103.7521,1.4003],[103.7527,1.4033],[103.75,1.4052],[103.7469,1.4054],[103.7466,1.4054]]]}},{"type":"Feature","properties":{"n":"Hougang","r":"North-East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8815,1.3877],[103.8784,1.3887],[103.8753,1.3878],[103.8761,1.3849],[103.8769,1.3818],[103.8767,1.3787],[103.877,1.3756],[103.8768,1.3724],[103.8763,1.3694],[103.8751,1.3661],[103.8737,1.3633],[103.8737,1.3601],[103.8753,1.3574],[103.877,1.3549],[103.8773,1.3519],[103.8798,1.3498],[103.8806,1.3468],[103.8827,1.3439],[103.8847,1.3412],[103.8867,1.3387],[103.8881,1.3358],[103.8906,1.3341],[103.8937,1.3356],[103.896,1.3377],[103.8979,1.3404],[103.8992,1.3435],[103.8986,1.3466],[103.8953,1.3472],[103.894,1.3499],[103.8953,1.353],[103.8978,1.3549],[103.9,1.3569],[103.9031,1.3593],[103.9046,1.362],[103.9061,1.3648],[103.9085,1.3719],[103.9095,1.3748],[103.9087,1.3778],[103.9063,1.3798],[103.9031,1.3803],[103.8999,1.3798],[103.8969,1.3794],[103.8935,1.38],[103.8903,1.3807],[103.8867,1.3838],[103.8837,1.3863],[103.8815,1.3877]]]}},{"type":"Feature","properties":{"n":"Jurong West","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7281,1.3489],[103.7281,1.3527],[103.7255,1.3548],[103.7224,1.3555],[103.7192,1.3556],[103.7153,1.3568],[103.7126,1.3587],[103.7093,1.3616],[103.7062,1.3643],[103.704,1.3622],[103.7003,1.3579],[103.6979,1.3551],[103.6952,1.3516],[103.6925,1.3481],[103.6903,1.3459],[103.6879,1.344],[103.685,1.3418],[103.6821,1.3397],[103.679,1.3392],[103.6771,1.3367],[103.6759,1.3329],[103.6775,1.3304],[103.6793,1.3278],[103.6841,1.3278],[103.6878,1.3278],[103.6914,1.3278],[103.6958,1.3278],[103.6991,1.3278],[103.7028,1.3278],[103.7059,1.3278],[103.7093,1.3284],[103.7125,1.3291],[103.7154,1.33],[103.7185,1.3309],[103.7208,1.329],[103.7192,1.3262],[103.7218,1.3241],[103.726,1.325],[103.7248,1.3282],[103.725,1.332],[103.7251,1.3363],[103.7234,1.3399],[103.7214,1.3422],[103.7225,1.345],[103.7267,1.3444],[103.7281,1.3489]]]}},{"type":"Feature","properties":{"n":"Kallang","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8628,1.3303],[103.8612,1.3266],[103.8588,1.3244],[103.8567,1.3221],[103.8537,1.3197],[103.8508,1.3182],[103.8479,1.3168],[103.8455,1.3143],[103.8444,1.3106],[103.8469,1.3084],[103.8499,1.3081],[103.8525,1.3105],[103.8539,1.3132],[103.8549,1.3102],[103.8571,1.3082],[103.8595,1.306],[103.8615,1.3028],[103.8647,1.3031],[103.8685,1.3043],[103.8683,1.3012],[103.8661,1.299],[103.8652,1.2961],[103.8701,1.2951],[103.8752,1.2954],[103.8792,1.2956],[103.8853,1.2958],[103.8854,1.2993],[103.8848,1.3025],[103.8832,1.3051],[103.8801,1.3072],[103.8772,1.3084],[103.8754,1.3114],[103.8747,1.3162],[103.8752,1.3191],[103.8736,1.3224],[103.8713,1.3256],[103.869,1.3276],[103.8661,1.329],[103.863,1.3302],[103.8628,1.3303]]]}},{"type":"Feature","properties":{"n":"Mandai","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8244,1.4351],[103.8212,1.4378],[103.8189,1.4401],[103.8161,1.4422],[103.8132,1.4437],[103.811,1.4412],[103.8074,1.4369],[103.8044,1.4334],[103.8013,1.4297],[103.7991,1.4271],[103.797,1.4247],[103.7947,1.4227],[103.7912,1.4246],[103.7884,1.4258],[103.7852,1.4265],[103.7821,1.4265],[103.7788,1.426],[103.7753,1.4245],[103.7725,1.4225],[103.7713,1.4187],[103.7714,1.4141],[103.7717,1.41],[103.7754,1.4106],[103.7785,1.4108],[103.7817,1.4108],[103.785,1.4116],[103.7881,1.4124],[103.793,1.4138],[103.7969,1.415],[103.7999,1.4158],[103.8032,1.4161],[103.8058,1.4144],[103.8087,1.4152],[103.8147,1.4137],[103.8181,1.4139],[103.8217,1.4141],[103.8238,1.4163],[103.8246,1.4195],[103.8252,1.4225],[103.8259,1.4255],[103.8269,1.4285],[103.8266,1.4323],[103.8259,1.4354],[103.8244,1.4351]]]}},{"type":"Feature","properties":{"n":"Pasir Ris","r":"East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9729,1.3876],[103.9704,1.3858],[103.9674,1.3832],[103.9645,1.3821],[103.9615,1.3816],[103.9584,1.3813],[103.9554,1.3816],[103.9525,1.3822],[103.9492,1.383],[103.9467,1.3848],[103.9442,1.3864],[103.9427,1.3894],[103.9432,1.3924],[103.941,1.395],[103.938,1.3935],[103.9405,1.3978],[103.9377,1.4008],[103.9345,1.4013],[103.9304,1.3998],[103.927,1.3993],[103.9242,1.3979],[103.9212,1.3955],[103.919,1.3934],[103.9167,1.3907],[103.9154,1.3877],[103.9161,1.3839],[103.9185,1.3813],[103.9211,1.3794],[103.9239,1.3784],[103.9269,1.3777],[103.9299,1.3767],[103.9329,1.3753],[103.9359,1.3739],[103.9386,1.3724],[103.9415,1.3706],[103.944,1.3684],[103.9467,1.3671],[103.9503,1.3663],[103.9532,1.3656],[103.9561,1.3645],[103.9588,1.3628],[103.9612,1.3602],[103.9633,1.3556],[103.9643,1.3527],[103.9674,1.3536],[103.9692,1.3567],[103.97,1.3597],[103.9722,1.3619],[103.9747,1.3638],[103.9758,1.3669],[103.9783,1.3689],[103.9799,1.3716],[103.976,1.3732],[103.978,1.3772],[103.9776,1.3806],[103.9756,1.3842],[103.9732,1.3873],[103.9729,1.3876]]]}},{"type":"Feature","properties":{"n":"Pioneer","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.6816,1.3092],[103.6846,1.3119],[103.6876,1.3136],[103.6906,1.315],[103.694,1.3154],[103.6963,1.3183],[103.6965,1.3227],[103.6965,1.3278],[103.6935,1.3278],[103.69,1.3278],[103.6866,1.3278],[103.6812,1.3278],[103.6795,1.3302],[103.6762,1.3305],[103.6729,1.3303],[103.6677,1.328],[103.6653,1.3255],[103.6635,1.3228],[103.6614,1.3204],[103.6586,1.3175],[103.656,1.3147],[103.6581,1.3124],[103.657,1.3095],[103.6548,1.3072],[103.6527,1.3049],[103.6507,1.3027],[103.6518,1.2994],[103.6548,1.2998],[103.6568,1.2975],[103.6586,1.2949],[103.6626,1.2931],[103.6651,1.2913],[103.6693,1.2909],[103.6717,1.2929],[103.6743,1.2951],[103.6717,1.2982],[103.6696,1.3004],[103.6691,1.3034],[103.6695,1.3064],[103.6725,1.3068],[103.6729,1.3036],[103.6746,1.3008],[103.6767,1.2985],[103.6794,1.2972],[103.6817,1.2992],[103.6815,1.3024],[103.6811,1.3053],[103.6807,1.3084],[103.6816,1.3092]]]}},{"type":"Feature","properties":{"n":"Punggol","r":"North-East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9302,1.4006],[103.9311,1.4035],[103.929,1.4058],[103.926,1.4084],[103.924,1.4107],[103.9215,1.4126],[103.9188,1.414],[103.9169,1.4166],[103.914,1.4171],[103.913,1.42],[103.9103,1.4214],[103.9074,1.4205],[103.9044,1.4203],[103.9017,1.419],[103.8993,1.4169],[103.8972,1.4144],[103.8959,1.4116],[103.8938,1.4088],[103.8914,1.4064],[103.8885,1.4048],[103.8869,1.4022],[103.89,1.4009],[103.8944,1.4002],[103.8978,1.3995],[103.9008,1.3984],[103.9036,1.3969],[103.9064,1.3947],[103.9087,1.3924],[103.9117,1.3889],[103.9143,1.3859],[103.916,1.3892],[103.9179,1.3922],[103.9206,1.395],[103.9234,1.3974],[103.927,1.3993],[103.9301,1.4006],[103.9302,1.4006]]]}},{"type":"Feature","properties":{"n":"Seletar","r":"North-East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8974,1.4149],[103.8978,1.4179],[103.8966,1.4208],[103.894,1.4225],[103.8913,1.4241],[103.8884,1.425],[103.8859,1.4271],[103.883,1.4291],[103.8805,1.4309],[103.8775,1.432],[103.8743,1.4315],[103.8714,1.4298],[103.8691,1.4275],[103.8673,1.4251],[103.8651,1.423],[103.8621,1.4186],[103.8615,1.4155],[103.8618,1.4121],[103.8602,1.409],[103.8566,1.4064],[103.8548,1.4034],[103.8565,1.4007],[103.8596,1.4008],[103.8637,1.4009],[103.8683,1.401],[103.8721,1.4011],[103.8767,1.4013],[103.8813,1.4014],[103.886,1.4013],[103.8875,1.4039],[103.8902,1.4056],[103.8926,1.4076],[103.8947,1.4098],[103.8963,1.4124],[103.8974,1.4149]]]}},{"type":"Feature","properties":{"n":"Sembawang","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8478,1.4605],[103.8442,1.4621],[103.8414,1.4632],[103.838,1.4645],[103.8336,1.4611],[103.8343,1.4647],[103.8284,1.4681],[103.8246,1.4633],[103.8223,1.4612],[103.8242,1.4656],[103.8222,1.4625],[103.8233,1.4656],[103.8194,1.4645],[103.8203,1.4673],[103.8192,1.4702],[103.8158,1.4706],[103.8126,1.4704],[103.8096,1.4699],[103.8066,1.4701],[103.8037,1.4692],[103.801,1.4678],[103.7983,1.4666],[103.7957,1.4646],[103.7925,1.4625],[103.7938,1.4593],[103.7962,1.4566],[103.8,1.4565],[103.8016,1.4532],[103.8029,1.4504],[103.8053,1.4475],[103.8082,1.4457],[103.8112,1.4445],[103.8142,1.4432],[103.817,1.4416],[103.8196,1.4396],[103.8221,1.4367],[103.8246,1.435],[103.8278,1.4365],[103.8295,1.4391],[103.8307,1.4419],[103.8359,1.4451],[103.8331,1.4514],[103.8373,1.454],[103.8434,1.4578],[103.8464,1.4596],[103.8478,1.4605]]]}},{"type":"Feature","properties":{"n":"Sengkang","r":"North-East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8868,1.4012],[103.8822,1.4014],[103.8782,1.4014],[103.8722,1.4011],[103.8689,1.401],[103.8658,1.401],[103.8623,1.4009],[103.8589,1.4006],[103.8558,1.4011],[103.8536,1.3979],[103.8568,1.397],[103.858,1.3938],[103.8592,1.3909],[103.8621,1.3901],[103.8651,1.3893],[103.8681,1.3884],[103.8719,1.3875],[103.8753,1.3878],[103.8784,1.3887],[103.8815,1.3877],[103.8845,1.3856],[103.8887,1.3821],[103.8911,1.3802],[103.8946,1.38],[103.8996,1.3798],[103.9026,1.3802],[103.9057,1.3801],[103.9085,1.3782],[103.912,1.3777],[103.9149,1.3795],[103.9175,1.3824],[103.9144,1.3859],[103.9117,1.3889],[103.9092,1.3918],[103.9064,1.3947],[103.9036,1.3969],[103.9008,1.3984],[103.8978,1.3995],[103.8944,1.4002],[103.89,1.4009],[103.8868,1.4012],[103.8868,1.4012]]]}},{"type":"Feature","properties":{"n":"Serangoon","r":"North-East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8731,1.3873],[103.8689,1.3882],[103.8657,1.3891],[103.8621,1.3901],[103.8592,1.3909],[103.8582,1.3876],[103.8584,1.3839],[103.8583,1.3802],[103.8584,1.3771],[103.8594,1.3736],[103.8607,1.3704],[103.8604,1.3666],[103.8593,1.3635],[103.8583,1.3607],[103.8571,1.3572],[103.8569,1.3538],[103.858,1.3502],[103.859,1.3474],[103.8601,1.3444],[103.8631,1.3438],[103.8663,1.344],[103.8691,1.3428],[103.872,1.3436],[103.8757,1.3441],[103.8794,1.343],[103.8827,1.3414],[103.8824,1.3445],[103.8805,1.3469],[103.8797,1.3501],[103.8771,1.352],[103.8769,1.3551],[103.8752,1.3576],[103.8737,1.3604],[103.8741,1.3642],[103.8756,1.3673],[103.8767,1.3714],[103.877,1.375],[103.8768,1.3784],[103.8769,1.3816],[103.8764,1.3846],[103.874,1.3867],[103.8731,1.3873]]]}},{"type":"Feature","properties":{"n":"Tampines","r":"East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9838,1.3167],[103.9824,1.32],[103.9795,1.3217],[103.9796,1.3249],[103.9814,1.3291],[103.983,1.3329],[103.9814,1.3359],[103.9771,1.3381],[103.9724,1.3402],[103.9698,1.3427],[103.9678,1.3457],[103.9661,1.3486],[103.9647,1.3515],[103.9636,1.3548],[103.9626,1.3576],[103.9609,1.3606],[103.9585,1.363],[103.9559,1.3646],[103.9529,1.3656],[103.9485,1.3667],[103.9456,1.3675],[103.9429,1.3693],[103.9398,1.3717],[103.9369,1.3733],[103.9341,1.3748],[103.9311,1.3739],[103.9304,1.371],[103.9309,1.3674],[103.9309,1.3632],[103.9309,1.36],[103.9281,1.354],[103.9261,1.3503],[103.9274,1.3467],[103.9302,1.3448],[103.9355,1.3396],[103.9378,1.3373],[103.9406,1.336],[103.9437,1.3354],[103.9484,1.3344],[103.9508,1.3317],[103.9529,1.3285],[103.9558,1.3253],[103.959,1.3226],[103.961,1.3202],[103.9625,1.317],[103.9642,1.3141],[103.9671,1.3149],[103.9701,1.3158],[103.9732,1.3161],[103.9767,1.3162],[103.9797,1.3165],[103.9828,1.3164],[103.9838,1.3167]]]}},{"type":"Feature","properties":{"n":"Tengah","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7376,1.3465],[103.7381,1.3498],[103.737,1.3529],[103.7367,1.356],[103.7391,1.3591],[103.7421,1.3626],[103.7441,1.3651],[103.747,1.3678],[103.7461,1.3712],[103.7426,1.3724],[103.7393,1.3734],[103.7354,1.376],[103.7327,1.3789],[103.7299,1.3764],[103.7274,1.3739],[103.7248,1.372],[103.7221,1.3704],[103.7153,1.3683],[103.7116,1.3674],[103.7087,1.3661],[103.7093,1.3616],[103.7126,1.3587],[103.7153,1.3568],[103.7185,1.3557],[103.7224,1.3555],[103.7255,1.3548],[103.7284,1.3535],[103.7313,1.3517],[103.7342,1.3489],[103.7366,1.3464],[103.7376,1.3465]]]}},{"type":"Feature","properties":{"n":"Toa Payoh","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8448,1.3439],[103.8419,1.345],[103.8391,1.3435],[103.8365,1.342],[103.8373,1.3388],[103.8371,1.3357],[103.8386,1.3318],[103.8404,1.3291],[103.8442,1.3296],[103.8478,1.3298],[103.8512,1.3295],[103.8542,1.3292],[103.8573,1.3293],[103.8601,1.3302],[103.8633,1.3301],[103.8669,1.3287],[103.8719,1.3289],[103.8759,1.3303],[103.879,1.3313],[103.8824,1.3321],[103.8854,1.3327],[103.8884,1.3335],[103.8878,1.3364],[103.8864,1.3392],[103.884,1.341],[103.8807,1.3424],[103.8774,1.3442],[103.8745,1.3436],[103.8714,1.3434],[103.8684,1.3431],[103.8656,1.3443],[103.8625,1.3437],[103.8594,1.3433],[103.8562,1.3433],[103.8526,1.3434],[103.8494,1.3439],[103.8456,1.3439],[103.8448,1.3439]]]}},{"type":"Feature","properties":{"n":"Western Water Catchment","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.693,1.4337],[103.69,1.4332],[103.6869,1.4319],[103.6837,1.431],[103.6811,1.429],[103.6781,1.4291],[103.6764,1.4264],[103.674,1.4243],[103.6737,1.4212],[103.6731,1.4182],[103.6715,1.4156],[103.6704,1.4124],[103.6687,1.4098],[103.6656,1.4091],[103.6643,1.4063],[103.663,1.4035],[103.6629,1.4005],[103.6628,1.3974],[103.6625,1.3944],[103.6621,1.3913],[103.6613,1.3884],[103.6603,1.3855],[103.6575,1.3843],[103.6568,1.3814],[103.6552,1.3788],[103.654,1.3759],[103.6528,1.3732],[103.6497,1.3729],[103.6485,1.37],[103.6467,1.3675],[103.6456,1.3647],[103.6443,1.3619],[103.6427,1.3594],[103.6402,1.3576],[103.6395,1.3546],[103.6433,1.3491],[103.6458,1.3469],[103.6492,1.3449],[103.6519,1.343],[103.6514,1.34],[103.6536,1.3372],[103.6564,1.3348],[103.6588,1.3329],[103.6618,1.3316],[103.6648,1.3303],[103.6672,1.3283],[103.6712,1.3298],[103.6741,1.3306],[103.6771,1.3367],[103.679,1.3392],[103.6821,1.3397],[103.685,1.3418],[103.6879,1.344],[103.6903,1.3459],[103.6925,1.3481],[103.6947,1.3508],[103.6968,1.3537],[103.7003,1.3579],[103.704,1.3622],[103.7062,1.3643],[103.7087,1.3661],[103.7116,1.3674],[103.7146,1.3681],[103.7213,1.3701],[103.7246,1.3718],[103.7274,1.3739],[103.7299,1.3764],[103.7327,1.3789],[103.7352,1.3812],[103.7377,1.3833],[103.7416,1.3866],[103.7403,1.3895],[103.7407,1.3925],[103.7423,1.3952],[103.7431,1.3988],[103.7436,1.4021],[103.7455,1.405],[103.7429,1.4069],[103.7415,1.4096],[103.7421,1.4128],[103.7411,1.4169],[103.74,1.4201],[103.7369,1.4198],[103.7287,1.4116],[103.725,1.4111],[103.7186,1.4111],[103.7168,1.4137],[103.7134,1.413],[103.7098,1.4126],[103.7067,1.4122],[103.7039,1.4137],[103.702,1.4161],[103.6998,1.4187],[103.6997,1.4218],[103.6971,1.4242],[103.6958,1.4277],[103.695,1.4315],[103.693,1.4337]]]}},{"type":"Feature","properties":{"n":"Woodlands","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7644,1.4434],[103.7666,1.4408],[103.7685,1.4376],[103.7685,1.4346],[103.7689,1.4314],[103.7699,1.4285],[103.7708,1.4256],[103.7713,1.4216],[103.7748,1.4242],[103.7776,1.4256],[103.7808,1.4264],[103.7838,1.4266],[103.7868,1.4262],[103.7899,1.4252],[103.7934,1.4234],[103.7966,1.4243],[103.799,1.4271],[103.8013,1.4297],[103.8035,1.4323],[103.8062,1.4354],[103.8095,1.4392],[103.8113,1.4417],[103.8102,1.4449],[103.8072,1.4462],[103.8046,1.4481],[103.8022,1.4518],[103.801,1.4546],[103.7983,1.456],[103.7951,1.4575],[103.7933,1.4603],[103.7904,1.4611],[103.7879,1.4593],[103.7854,1.4576],[103.7832,1.4555],[103.7806,1.454],[103.778,1.4523],[103.7753,1.451],[103.7725,1.4498],[103.7694,1.4527],[103.7699,1.4496],[103.7681,1.4472],[103.7669,1.4443],[103.7644,1.4434]]]}},{"type":"Feature","properties":{"n":"Yishun","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8556,1.4273],[103.8528,1.429],[103.8482,1.4333],[103.8462,1.4357],[103.8448,1.439],[103.842,1.4415],[103.8392,1.4434],[103.8369,1.4454],[103.8315,1.4424],[103.8296,1.4394],[103.8281,1.4368],[103.8263,1.434],[103.8268,1.4302],[103.8265,1.4268],[103.8254,1.4239],[103.8249,1.4208],[103.8242,1.4179],[103.8233,1.4145],[103.8203,1.4142],[103.8165,1.4136],[103.8111,1.4153],[103.8081,1.415],[103.8066,1.4124],[103.8082,1.4082],[103.81,1.4051],[103.8124,1.4015],[103.8138,1.3982],[103.8156,1.3956],[103.8188,1.3943],[103.8219,1.3935],[103.825,1.393],[103.8297,1.3933],[103.8336,1.3942],[103.8365,1.395],[103.8405,1.396],[103.8436,1.3965],[103.8478,1.3966],[103.851,1.3966],[103.8546,1.3986],[103.8554,1.4017],[103.8551,1.4049],[103.8596,1.4085],[103.8616,1.4113],[103.8616,1.4146],[103.8617,1.4177],[103.8636,1.4212],[103.867,1.4246],[103.8641,1.424],[103.8595,1.4255],[103.8556,1.4273]]]}},{"type":"Feature","properties":{"n":"Bukit Batok","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7641,1.37],[103.7629,1.373],[103.7623,1.3767],[103.7612,1.3797],[103.7579,1.3782],[103.7551,1.3769],[103.7527,1.3748],[103.7513,1.3717],[103.7485,1.3691],[103.7454,1.3664],[103.7431,1.3639],[103.74,1.36],[103.7378,1.3577],[103.7365,1.3549],[103.7376,1.3512],[103.7383,1.3482],[103.7392,1.3452],[103.7424,1.3449],[103.7453,1.3436],[103.7489,1.3416],[103.7528,1.3393],[103.7567,1.3371],[103.7602,1.3352],[103.7645,1.3329],[103.7656,1.3358],[103.7642,1.3386],[103.7651,1.3421],[103.7642,1.345],[103.7666,1.3472],[103.7704,1.349],[103.7698,1.3524],[103.7688,1.3554],[103.7674,1.3582],[103.7671,1.3614],[103.7675,1.3645],[103.7659,1.3672],[103.7641,1.37]]]}},{"type":"Feature","properties":{"n":"Bukit Merah","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8174,1.2943],[103.8154,1.2915],[103.812,1.2921],[103.8089,1.2924],[103.8066,1.2898],[103.8044,1.2875],[103.8022,1.2853],[103.8016,1.2822],[103.803,1.2793],[103.8022,1.2761],[103.8022,1.2729],[103.8005,1.2704],[103.8,1.2674],[103.8024,1.2648],[103.8046,1.2627],[103.8064,1.2651],[103.8095,1.2652],[103.8124,1.2664],[103.8149,1.2645],[103.8119,1.2649],[103.8149,1.2643],[103.8181,1.2635],[103.8233,1.2631],[103.8232,1.2601],[103.8256,1.2583],[103.8286,1.2572],[103.8319,1.2572],[103.8351,1.2552],[103.8385,1.2558],[103.8424,1.2578],[103.8401,1.2601],[103.8362,1.2638],[103.8305,1.2636],[103.8266,1.2614],[103.8269,1.2645],[103.8301,1.2663],[103.833,1.2674],[103.8371,1.2676],[103.8416,1.2656],[103.8438,1.2635],[103.8465,1.2621],[103.8447,1.265],[103.8479,1.2644],[103.8502,1.2619],[103.8516,1.2654],[103.8516,1.2684],[103.8488,1.271],[103.846,1.2723],[103.8422,1.2726],[103.8409,1.2757],[103.84,1.2788],[103.8386,1.2815],[103.836,1.2833],[103.8348,1.2861],[103.835,1.2892],[103.8337,1.2919],[103.8305,1.2922],[103.8274,1.2926],[103.8245,1.292],[103.8218,1.2934],[103.8189,1.2939],[103.8174,1.2943]]]}},{"type":"Feature","properties":{"n":"Bukit Panjang","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7745,1.3903],[103.7708,1.3905],[103.767,1.3907],[103.7622,1.3904],[103.7589,1.3892],[103.7554,1.3889],[103.7568,1.386],[103.7589,1.3837],[103.7612,1.3797],[103.7623,1.3767],[103.7628,1.3736],[103.7639,1.3704],[103.7657,1.3675],[103.7674,1.3648],[103.7672,1.3616],[103.7674,1.3582],[103.7688,1.3554],[103.7698,1.3524],[103.7702,1.3494],[103.7719,1.3466],[103.7752,1.3445],[103.7778,1.3419],[103.7811,1.3423],[103.7857,1.3439],[103.7883,1.3457],[103.7865,1.3481],[103.7894,1.3491],[103.7894,1.3523],[103.7856,1.3549],[103.7832,1.357],[103.7812,1.3597],[103.7799,1.3638],[103.7792,1.368],[103.7784,1.3711],[103.7774,1.3746],[103.7764,1.3781],[103.7754,1.3831],[103.7745,1.3903]]]}},{"type":"Feature","properties":{"n":"Singapore River","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8341,1.2925],[103.8326,1.2952],[103.8317,1.2923],[103.8343,1.2908],[103.835,1.2878],[103.8382,1.2884],[103.8412,1.2884],[103.8442,1.2872],[103.8469,1.2856],[103.85,1.2857],[103.8496,1.2888],[103.8471,1.2906],[103.8446,1.2924],[103.8421,1.2941],[103.8403,1.2918],[103.8373,1.2922],[103.8341,1.2925],[103.8341,1.2925]]]}},{"type":"Feature","properties":{"n":"Bishan","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.843,1.3643],[103.8397,1.3651],[103.8368,1.3662],[103.8339,1.3671],[103.8309,1.3678],[103.8282,1.3665],[103.8272,1.3636],[103.8245,1.3617],[103.8215,1.3614],[103.8197,1.3588],[103.8185,1.3549],[103.8218,1.3531],[103.825,1.3532],[103.8281,1.3537],[103.8307,1.3523],[103.8324,1.3498],[103.8355,1.3475],[103.8369,1.3449],[103.8399,1.3443],[103.844,1.3441],[103.8479,1.344],[103.8526,1.3434],[103.8562,1.3433],[103.8594,1.3433],[103.8594,1.3464],[103.8583,1.3492],[103.8572,1.3527],[103.8563,1.3556],[103.8539,1.3584],[103.8514,1.3611],[103.8489,1.3629],[103.846,1.364],[103.843,1.3643],[103.843,1.3643]]]}},{"type":"Feature","properties":{"n":"Central Water Catchment","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.807,1.4113],[103.8058,1.4144],[103.8032,1.4161],[103.7999,1.4158],[103.7969,1.415],[103.793,1.4138],[103.7896,1.4125],[103.785,1.4116],[103.7817,1.4108],[103.7785,1.4108],[103.7754,1.4106],[103.7725,1.4099],[103.7727,1.4056],[103.7735,1.4019],[103.7739,1.3987],[103.7739,1.3956],[103.7745,1.3903],[103.775,1.3861],[103.776,1.3798],[103.7769,1.3765],[103.7781,1.3721],[103.779,1.369],[103.7796,1.3657],[103.7803,1.3622],[103.7816,1.3591],[103.7837,1.3565],[103.7874,1.3537],[103.7901,1.3515],[103.7924,1.3495],[103.7957,1.3492],[103.7985,1.3474],[103.8014,1.3443],[103.8037,1.3418],[103.8068,1.3413],[103.8099,1.3417],[103.8119,1.3394],[103.815,1.3381],[103.8173,1.3361],[103.8196,1.3384],[103.8221,1.3403],[103.8255,1.3412],[103.8285,1.341],[103.8316,1.3405],[103.835,1.3411],[103.8371,1.3435],[103.8358,1.3463],[103.834,1.3491],[103.8317,1.3512],[103.8293,1.3533],[103.8256,1.3535],[103.8225,1.3528],[103.819,1.3542],[103.8192,1.3574],[103.8205,1.3607],[103.8239,1.3617],[103.8271,1.3627],[103.828,1.3657],[103.8275,1.3689],[103.8279,1.372],[103.8265,1.3754],[103.8277,1.3784],[103.8248,1.3793],[103.8218,1.3796],[103.8185,1.3803],[103.8192,1.3832],[103.8191,1.3862],[103.818,1.3894],[103.8186,1.3928],[103.8164,1.3951],[103.8141,1.3973],[103.813,1.4004],[103.8111,1.4038],[103.8091,1.4063],[103.8075,1.4099],[103.807,1.4113]]]}},{"type":"Feature","properties":{"n":"Museum","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8457,1.3009],[103.8429,1.2998],[103.8433,1.2967],[103.8425,1.2938],[103.8451,1.2921],[103.8476,1.2903],[103.8499,1.2932],[103.8517,1.2958],[103.8502,1.2985],[103.8476,1.2999],[103.8457,1.3009]]]}},{"type":"Feature","properties":{"n":"Newton","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8444,1.3],[103.8456,1.3029],[103.8484,1.3041],[103.8468,1.3068],[103.8458,1.3098],[103.843,1.3111],[103.84,1.3124],[103.8379,1.3145],[103.8354,1.3173],[103.8326,1.3153],[103.8303,1.3133],[103.8277,1.3117],[103.8273,1.3086],[103.8302,1.3077],[103.8332,1.308],[103.834,1.305],[103.8372,1.3045],[103.8389,1.302],[103.8419,1.3023],[103.844,1.3001],[103.8444,1.3]]]}},{"type":"Feature","properties":{"n":"Straits View","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8664,1.2728],[103.8632,1.2749],[103.8604,1.2768],[103.857,1.2758],[103.8545,1.272],[103.8529,1.2694],[103.8543,1.2664],[103.8574,1.2659],[103.8609,1.2647],[103.86,1.2678],[103.8629,1.2699],[103.8652,1.2719],[103.8664,1.2728]]]}},{"type":"Feature","properties":{"n":"Marine Parade","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9195,1.302],[103.9188,1.3057],[103.916,1.307],[103.9121,1.3061],[103.9091,1.3072],[103.908,1.3101],[103.9068,1.3131],[103.9042,1.3115],[103.9018,1.3097],[103.8978,1.3095],[103.8946,1.3096],[103.8912,1.3089],[103.8896,1.3063],[103.8861,1.3056],[103.8846,1.3029],[103.8854,1.2995],[103.8853,1.2963],[103.8815,1.2957],[103.8777,1.2955],[103.8757,1.2932],[103.8766,1.29],[103.8786,1.2876],[103.8809,1.285],[103.8836,1.2876],[103.8871,1.2895],[103.89,1.2904],[103.8922,1.2926],[103.8955,1.2938],[103.8982,1.2951],[103.9011,1.2961],[103.904,1.2972],[103.907,1.298],[103.9103,1.2988],[103.9132,1.2998],[103.916,1.3011],[103.9189,1.3019],[103.9195,1.302]]]}},{"type":"Feature","properties":{"n":"Bedok","r":"East Region"},"geometry":{"type":"Polygon","coordinates":[[[103.9636,1.3144],[103.962,1.3181],[103.9607,1.3209],[103.9571,1.3242],[103.9542,1.3266],[103.952,1.3299],[103.9495,1.3336],[103.9437,1.3354],[103.9406,1.336],[103.9378,1.3373],[103.9357,1.3394],[103.9319,1.3431],[103.9298,1.3452],[103.9263,1.3474],[103.923,1.3475],[103.9201,1.3462],[103.9175,1.3443],[103.9145,1.3433],[103.9113,1.3429],[103.9088,1.3409],[103.9049,1.3392],[103.9012,1.3389],[103.8979,1.3404],[103.8962,1.3378],[103.8988,1.3353],[103.901,1.3332],[103.9032,1.331],[103.9054,1.3286],[103.9057,1.3256],[103.9053,1.3224],[103.9049,1.3193],[103.9055,1.3163],[103.9067,1.3134],[103.9078,1.3106],[103.909,1.3073],[103.9119,1.306],[103.916,1.307],[103.9188,1.3057],[103.9194,1.3024],[103.9224,1.3028],[103.9253,1.3036],[103.9284,1.3039],[103.9312,1.3049],[103.9342,1.3054],[103.9372,1.3064],[103.94,1.3074],[103.9427,1.3087],[103.9461,1.3097],[103.949,1.3104],[103.9522,1.3108],[103.9553,1.3116],[103.9582,1.3126],[103.961,1.3139],[103.9636,1.3144]]]}},{"type":"Feature","properties":{"n":"Downtown Core","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8666,1.3039],[103.8639,1.3025],[103.8604,1.3005],[103.8574,1.3016],[103.8547,1.3029],[103.8553,1.3],[103.8533,1.2976],[103.8513,1.2954],[103.8496,1.2925],[103.8481,1.2898],[103.8503,1.2871],[103.8472,1.2854],[103.849,1.283],[103.8479,1.28],[103.845,1.2811],[103.845,1.2781],[103.8433,1.2755],[103.8422,1.2726],[103.8455,1.2726],[103.8483,1.2713],[103.8513,1.2694],[103.8545,1.272],[103.857,1.2758],[103.8589,1.2787],[103.8606,1.2816],[103.8615,1.2851],[103.8616,1.2885],[103.8647,1.2888],[103.8647,1.2918],[103.8653,1.2948],[103.8654,1.2979],[103.8675,1.3003],[103.8691,1.3029],[103.8666,1.3039]]]}},{"type":"Feature","properties":{"n":"Orchard","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8353,1.3081],[103.8319,1.3079],[103.8289,1.3078],[103.8262,1.3063],[103.8232,1.3053],[103.8251,1.3029],[103.8277,1.3045],[103.8307,1.3039],[103.8334,1.3017],[103.836,1.3],[103.8386,1.2983],[103.8414,1.2994],[103.8414,1.3027],[103.8384,1.3021],[103.8368,1.3047],[103.8338,1.3053],[103.8355,1.3078],[103.8353,1.3081]]]}},{"type":"Feature","properties":{"n":"Outram","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8431,1.2878],[103.8404,1.2891],[103.8371,1.2877],[103.8348,1.2855],[103.8364,1.2829],[103.839,1.2811],[103.8403,1.2783],[103.841,1.2752],[103.8441,1.2756],[103.8451,1.2785],[103.8479,1.28],[103.849,1.283],[103.8472,1.2854],[103.8446,1.287],[103.8431,1.2878]]]}},{"type":"Feature","properties":{"n":"River Valley","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8306,1.304],[103.8276,1.3045],[103.8249,1.3029],[103.8251,1.2998],[103.8281,1.299],[103.8301,1.2967],[103.8327,1.2949],[103.8349,1.2925],[103.8379,1.2919],[103.841,1.2924],[103.8428,1.2957],[103.8422,1.2987],[103.8392,1.2987],[103.8363,1.2999],[103.8334,1.3017],[103.8309,1.3038],[103.8306,1.304]]]}},{"type":"Feature","properties":{"n":"Rochor","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8562,1.3091],[103.8552,1.312],[103.8525,1.3105],[103.8499,1.3081],[103.8468,1.3076],[103.8484,1.3051],[103.8454,1.304],[103.8457,1.3009],[103.8485,1.2999],[103.8507,1.2978],[103.8539,1.2983],[103.8557,1.3008],[103.8588,1.3005],[103.8622,1.3015],[103.8607,1.3042],[103.8588,1.3067],[103.8562,1.3091]]]}},{"type":"Feature","properties":{"n":"Sungei Kadut","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.7644,1.4434],[103.7605,1.4441],[103.7573,1.4435],[103.7517,1.4447],[103.7442,1.4463],[103.7429,1.4416],[103.743,1.4385],[103.7416,1.4354],[103.743,1.4325],[103.7436,1.4284],[103.7425,1.4254],[103.7404,1.4232],[103.74,1.4201],[103.7411,1.4169],[103.7421,1.414],[103.7417,1.4109],[103.7422,1.4077],[103.7447,1.4059],[103.7482,1.4054],[103.7513,1.4049],[103.7526,1.402],[103.752,1.399],[103.7523,1.3959],[103.7529,1.3923],[103.7533,1.389],[103.7567,1.3889],[103.7599,1.3896],[103.7643,1.3907],[103.7694,1.3906],[103.7744,1.3903],[103.7741,1.3934],[103.7739,1.3965],[103.7738,1.3999],[103.773,1.4044],[103.7718,1.4089],[103.7715,1.4126],[103.7714,1.4164],[103.7713,1.4215],[103.771,1.4247],[103.7701,1.4279],[103.769,1.4309],[103.7686,1.434],[103.7685,1.4371],[103.7684,1.4405],[103.7657,1.4419],[103.7644,1.4434]]]}},{"type":"Feature","properties":{"n":"Tuas","r":"West Region"},"geometry":{"type":"Polygon","coordinates":[[[103.6392,1.3527],[103.6364,1.3515],[103.6333,1.3508],[103.6341,1.3479],[103.6359,1.3454],[103.6348,1.3426],[103.6343,1.3395],[103.6323,1.3371],[103.6294,1.3325],[103.6267,1.3282],[103.6229,1.3222],[103.6213,1.3196],[103.6208,1.3149],[103.6238,1.3172],[103.625,1.314],[103.6239,1.311],[103.6228,1.3081],[103.6218,1.3053],[103.6207,1.3025],[103.6196,1.2994],[103.618,1.2963],[103.6182,1.2932],[103.6194,1.2903],[103.6203,1.2871],[103.6199,1.2841],[103.6183,1.2814],[103.6157,1.2795],[103.6128,1.2784],[103.6109,1.2759],[103.6077,1.2673],[103.6099,1.2647],[103.6099,1.2611],[103.6057,1.2611],[103.6097,1.2602],[103.6097,1.2557],[103.612,1.253],[103.6088,1.2529],[103.6088,1.2464],[103.6124,1.2464],[103.6061,1.2437],[103.6057,1.2378],[103.6057,1.2325],[103.6057,1.223],[103.6068,1.2202],[103.6117,1.2181],[103.6146,1.2173],[103.6177,1.2165],[103.6213,1.2156],[103.6249,1.2147],[103.6279,1.2139],[103.6313,1.213],[103.635,1.2121],[103.6399,1.2108],[103.6428,1.2103],[103.646,1.2121],[103.6567,1.2165],[103.6569,1.2216],[103.6173,1.2216],[103.6173,1.2292],[103.6498,1.2292],[103.6498,1.2382],[103.6173,1.2382],[103.6173,1.245],[103.6378,1.245],[103.6444,1.248],[103.6444,1.254],[103.6173,1.254],[103.6173,1.2609],[103.6204,1.2609],[103.6434,1.2609],[103.6434,1.2641],[103.6433,1.2698],[103.64,1.2699],[103.64,1.2731],[103.6402,1.2762],[103.6407,1.2792],[103.6452,1.279],[103.6483,1.28],[103.65,1.2826],[103.6498,1.2857],[103.6483,1.2885],[103.6466,1.2917],[103.645,1.3006],[103.6491,1.3053],[103.6517,1.307],[103.6542,1.3093],[103.6568,1.3109],[103.6559,1.3145],[103.6586,1.3175],[103.6612,1.3202],[103.6634,1.3226],[103.6653,1.3255],[103.6674,1.3278],[103.6654,1.3301],[103.6624,1.3313],[103.659,1.3328],[103.6566,1.3347],[103.6541,1.3367],[103.6517,1.3394],[103.6521,1.3424],[103.6499,1.3449],[103.6466,1.3458],[103.6446,1.348],[103.6392,1.3527]]]}},{"type":"Feature","properties":{"n":"Marina East","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8811,1.2848],[103.8786,1.2876],[103.8766,1.29],[103.8756,1.2928],[103.8777,1.2955],[103.8728,1.2954],[103.8672,1.2945],[103.8646,1.2931],[103.865,1.2901],[103.8691,1.2846],[103.8723,1.2815],[103.8752,1.281],[103.8784,1.2825],[103.881,1.2846],[103.8811,1.2848]]]}},{"type":"Feature","properties":{"n":"Marina South","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8725,1.2813],[103.8691,1.2846],[103.8647,1.2888],[103.8616,1.2886],[103.8615,1.2851],[103.8607,1.2817],[103.8589,1.2787],[103.8609,1.2764],[103.8651,1.2737],[103.8682,1.2741],[103.8707,1.276],[103.8721,1.2788],[103.8725,1.2813]]]}},{"type":"Feature","properties":{"n":"Novena","r":"Central Region"},"geometry":{"type":"Polygon","coordinates":[[[103.836,1.3417],[103.833,1.3404],[103.8299,1.3407],[103.8268,1.3412],[103.8234,1.3407],[103.8204,1.3395],[103.8189,1.3367],[103.8175,1.3338],[103.8146,1.3295],[103.8138,1.3265],[103.8134,1.3233],[103.8165,1.3229],[103.8201,1.3224],[103.824,1.3213],[103.8269,1.3203],[103.8299,1.3193],[103.8331,1.3182],[103.8368,1.3158],[103.8391,1.3131],[103.8417,1.3117],[103.8451,1.3131],[103.8467,1.3159],[103.8493,1.3175],[103.8521,1.3189],[103.8548,1.3204],[103.8572,1.3227],[103.8601,1.3256],[103.8622,1.3286],[103.8592,1.3299],[103.8562,1.3291],[103.8526,1.3294],[103.8494,1.3297],[103.8442,1.3296],[103.8412,1.3291],[103.8387,1.3317],[103.8374,1.3344],[103.8373,1.3375],[103.836,1.3417]]]}},{"type":"Feature","properties":{"n":"Lim Chu Kang","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.743,1.4387],[103.7395,1.4389],[103.7367,1.4399],[103.7379,1.4427],[103.7355,1.4445],[103.7331,1.4463],[103.7311,1.4486],[103.7289,1.4508],[103.7248,1.4512],[103.7215,1.4513],[103.7182,1.4507],[103.7153,1.4501],[103.7124,1.4492],[103.7098,1.4475],[103.7073,1.4454],[103.7049,1.4436],[103.7028,1.4413],[103.7003,1.4396],[103.6981,1.4375],[103.6961,1.435],[103.6934,1.4337],[103.6958,1.4277],[103.697,1.4243],[103.7001,1.4232],[103.6992,1.4202],[103.7016,1.4181],[103.7025,1.415],[103.7051,1.4124],[103.7086,1.4124],[103.712,1.4128],[103.7147,1.4143],[103.7174,1.4129],[103.7228,1.4111],[103.7273,1.4111],[103.7369,1.4198],[103.7392,1.4222],[103.7415,1.4243],[103.7434,1.4267],[103.7435,1.43],[103.7428,1.4332],[103.7414,1.4359],[103.743,1.4386],[103.743,1.4387]]]}},{"type":"Feature","properties":{"n":"Sembawang","r":"North Region"},"geometry":{"type":"Polygon","coordinates":[[[103.8478,1.4605],[103.8442,1.4621],[103.8414,1.4632],[103.838,1.4645],[103.8336,1.4611],[103.8343,1.4647],[103.8284,1.4681],[103.8246,1.4633],[103.8223,1.4612],[103.8242,1.4656],[103.8222,1.4625],[103.8233,1.4656],[103.8194,1.4645],[103.8203,1.4673],[103.8192,1.4702],[103.8158,1.4706],[103.8126,1.4704],[103.8096,1.4699],[103.8066,1.4701],[103.8037,1.4692],[103.801,1.4678],[103.7983,1.4666],[103.7957,1.4646],[103.7925,1.4625],[103.7938,1.4593],[103.7962,1.4566],[103.8,1.4565],[103.8016,1.4532],[103.8029,1.4504],[103.8053,1.4475],[103.8082,1.4457],[103.8112,1.4445],[103.8142,1.4432],[103.817,1.4416],[103.8196,1.4396],[103.8221,1.4367],[103.8246,1.435],[103.8278,1.4365],[103.8295,1.4391],[103.8307,1.4419],[103.8359,1.4451],[103.8331,1.4514],[103.8373,1.454],[103.8434,1.4578],[103.8464,1.4596],[103.8478,1.4605]]]}},{"type":"Feature","properties":{"n":"Simpang","r":"North Region"},"geometry":{"type":"MultiPolygon","coordinates":[[[[103.8724,1.44],[103.8705,1.4424],[103.8685,1.4449],[103.8664,1.4474],[103.8642,1.4497],[103.8622,1.452],[103.859,1.4521],[103.858,1.4492],[103.8595,1.4464],[103.8598,1.4434],[103.8618,1.4412],[103.8635,1.4386],[103.8654,1.4362],[103.8684,1.4354],[103.8711,1.437],[103.8726,1.4396],[103.8724,1.44]]],[[[103.8635,1.4343],[103.8625,1.4375],[103.8603,1.4402],[103.8586,1.4428],[103.8578,1.4457],[103.8567,1.4485],[103.8554,1.4516],[103.8577,1.4536],[103.856,1.4563],[103.8532,1.458],[103.8505,1.4593],[103.8472,1.4602],[103.8436,1.4579],[103.8385,1.4547],[103.8331,1.4514],[103.8355,1.4474],[103.8375,1.4447],[103.8405,1.4426],[103.8431,1.4406],[103.8455,1.4376],[103.8468,1.4347],[103.8522,1.4295],[103.855,1.4276],[103.8595,1.4255],[103.8607,1.4287],[103.8631,1.4307],[103.8652,1.4329],[103.8635,1.4343]]]]}}]};
+
+const SG_CENTROIDS=[
+  {"n":"Bukit Timah","lat":1.3301,"lng":103.7906},{"n":"Clementi","lat":1.3174,"lng":103.7608},
+  {"n":"Jurong East","lat":1.3203,"lng":103.7346},{"n":"Novena","lat":1.327,"lng":103.8352},
+  {"n":"Queenstown","lat":1.289,"lng":103.7846},{"n":"Tanglin","lat":1.3084,"lng":103.8176},
+  {"n":"Geylang","lat":1.3209,"lng":103.8895},{"n":"Paya Lebar","lat":1.3594,"lng":103.9148},
+  {"n":"Ang Mo Kio","lat":1.3801,"lng":103.842},{"n":"Boon Lay","lat":1.3148,"lng":103.7022},
+  {"n":"Changi","lat":1.3513,"lng":103.9986},{"n":"Choa Chu Kang","lat":1.3854,"lng":103.7472},
+  {"n":"Hougang","lat":1.3636,"lng":103.8898},{"n":"Jurong West","lat":1.3416,"lng":103.7049},
+  {"n":"Kallang","lat":1.3112,"lng":103.8666},{"n":"Mandai","lat":1.4236,"lng":103.8025},
+  {"n":"Pasir Ris","lat":1.3788,"lng":103.9483},{"n":"Pioneer","lat":1.3128,"lng":103.673},
+  {"n":"Punggol","lat":1.4053,"lng":103.9101},{"n":"Seletar","lat":1.4144,"lng":103.8771},
+  {"n":"Sembawang","lat":1.4556,"lng":103.8188},{"n":"Sengkang","lat":1.3914,"lng":103.8876},
+  {"n":"Serangoon","lat":1.3653,"lng":103.8678},{"n":"Simpang","lat":1.4441,"lng":103.85},
+  {"n":"Tampines","lat":1.3438,"lng":103.954},{"n":"Tengah","lat":1.3638,"lng":103.7289},
+  {"n":"Toa Payoh","lat":1.3367,"lng":103.861},{"n":"Western Water Catchment","lat":1.3821,"lng":103.6898},
+  {"n":"Woodlands","lat":1.4407,"lng":103.7875},{"n":"Yishun","lat":1.415,"lng":103.837},
+  {"n":"Bukit Batok","lat":1.3557,"lng":103.7548},{"n":"Bukit Merah","lat":1.2755,"lng":103.8232},
+  {"n":"Bukit Panjang","lat":1.3669,"lng":103.7729},{"n":"Singapore River","lat":1.2899,"lng":103.8416},
+  {"n":"Lim Chu Kang","lat":1.4308,"lng":103.7194},{"n":"Sungei Kadut","lat":1.4179,"lng":103.7576},
+  {"n":"Bishan","lat":1.355,"lng":103.8405},{"n":"Central Water Catchment","lat":1.3767,"lng":103.8012},
+  {"n":"Museum","lat":1.2959,"lng":103.8468},{"n":"Newton","lat":1.3087,"lng":103.838},
+  {"n":"Straits View","lat":1.2711,"lng":103.859},{"n":"Marine Parade","lat":1.3002,"lng":103.8964},
+  {"n":"Bedok","lat":1.324,"lng":103.9284},{"n":"Downtown Core","lat":1.2869,"lng":103.8554},
+  {"n":"Orchard","lat":1.3038,"lng":103.8333},{"n":"Outram","lat":1.2828,"lng":103.8422},
+  {"n":"River Valley","lat":1.298,"lng":103.8341},{"n":"Rochor","lat":1.3041,"lng":103.8533},
+  {"n":"Tuas","lat":1.2804,"lng":103.6331},{"n":"Sembawang","lat":1.4556,"lng":103.8188},
+  {"n":"Marina East","lat":1.2886,"lng":103.8726},{"n":"Marina South","lat":1.2807,"lng":103.8657}
 ];
 
-// GeoJSON boundaries (simplified polygons for each planning region)
-const REGION_GEOJSON = {
-  type: "FeatureCollection",
-  features: [
-    { type:"Feature", properties:{ name:"Central Region" }, geometry:{ type:"Polygon", coordinates:[[
-      [103.7500,1.2800],[103.7800,1.2600],[103.8200,1.2550],[103.8700,1.2700],[103.9000,1.2900],
-      [103.9100,1.3200],[103.8900,1.3600],[103.8600,1.3800],[103.8200,1.3850],[103.7800,1.3700],
-      [103.7500,1.3400],[103.7300,1.3100],[103.7500,1.2800]
-    ]]}},
-    { type:"Feature", properties:{ name:"North Region" }, geometry:{ type:"Polygon", coordinates:[[
-      [103.6800,1.3800],[103.7400,1.3700],[103.8200,1.3850],[103.8600,1.3800],[103.9000,1.3900],
-      [103.9300,1.4000],[103.9400,1.4400],[103.8800,1.4700],[103.8200,1.4800],[103.7600,1.4600],
-      [103.7000,1.4400],[103.6700,1.4200],[103.6600,1.3900],[103.6800,1.3800]
-    ]]}},
-    { type:"Feature", properties:{ name:"North-East Region" }, geometry:{ type:"Polygon", coordinates:[[
-      [103.8600,1.3800],[103.8900,1.3600],[103.9100,1.3200],[103.9300,1.3400],[103.9600,1.3500],
-      [103.9900,1.3700],[104.0000,1.4000],[103.9700,1.4200],[103.9400,1.4400],[103.9300,1.4000],
-      [103.9000,1.3900],[103.8600,1.3800]
-    ]]}},
-    { type:"Feature", properties:{ name:"East Region" }, geometry:{ type:"Polygon", coordinates:[[
-      [103.9000,1.2900],[103.9300,1.3000],[103.9600,1.3200],[103.9900,1.3400],[103.9900,1.3700],
-      [103.9600,1.3500],[103.9300,1.3400],[103.9100,1.3200],[103.9000,1.2900]
-    ]]}},
-    { type:"Feature", properties:{ name:"West Region" }, geometry:{ type:"Polygon", coordinates:[[
-      [103.6000,1.2800],[103.6500,1.2700],[103.7500,1.2800],[103.7300,1.3100],[103.7500,1.3400],
-      [103.7800,1.3700],[103.7400,1.3700],[103.6800,1.3800],[103.6600,1.3900],[103.6200,1.3700],
-      [103.6000,1.3500],[103.5800,1.3200],[103.5900,1.3000],[103.6000,1.2800]
-    ]]}}
-  ]
-};
+// ── INIT ──
+document.addEventListener('DOMContentLoaded',function(){ setTimeout(initApp,50); });
 
-// ─── State ────────────────────────────────────────────────
-let map, regionLayer;
-let activeRoad = null, activeLayer = null, activeItem = null;
-
-// ─── Init — called after Leaflet loads ────────────────────
-function initApp() {
-  map = L.map('map', {
-    center: [1.3521, 103.8198], zoom: 11,
-    zoomControl: true, attributionControl: false
+function initApp(){
+  map=L.map('map',{center:[1.3521,103.8198],zoom:11,zoomControl:false,attributionControl:false});
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+  map.on('mousemove',function(e){
+    document.getElementById('status-coords').textContent=e.latlng.lat.toFixed(4)+', '+e.latlng.lng.toFixed(4);
   });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, subdomains: 'abcd'
+  // Planning area boundaries — subtle dotted base layer
+  L.geoJSON(SG_BOUNDARIES,{
+    style:{color:'#b0a898',weight:1,opacity:0.4,fill:false,dashArray:'5 4'}
   }).addTo(map);
 
-  map.on('mousemove', e => {
-    document.getElementById('status-coords').textContent =
-      e.latlng.lat.toFixed(4) + ', ' + e.latlng.lng.toFixed(4);
-  });
-
-  addRegionLayer();
-  buildSidebar();
-  bindUI();
-  setStatus('ok', 'Ready — select a road from the list.');
-}
-
-// ─── Region boundaries ────────────────────────────────────
-function addRegionLayer() {
-  regionLayer = L.geoJSON(REGION_GEOJSON, {
-    style: {
-      color: '#8a8078',
-      weight: 1.5,
-      opacity: 0.45,
-      fill: false,
-      dashArray: '6, 5'
-    }
-  }).addTo(map);
-
-  // Add subtle region name labels
-  SG_REGIONS.forEach(r => {
-    const icon = L.divIcon({
-      className: '',
-      html: '<div style="font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#9a9088;text-shadow:1px 1px 2px rgba(250,255,242,0.9),-1px -1px 2px rgba(250,255,242,0.9);white-space:nowrap;pointer-events:none">' + r.name + '</div>',
-      iconAnchor: [50, 8]
+  // Build area marker map for quick DOM lookup
+  SG_CENTROIDS.forEach(function(c){
+    var m=L.marker([c.lat,c.lng],{
+      icon:L.divIcon({
+        className:'area-label',
+        html:c.n,
+        iconSize:null,
+        iconAnchor:null
+      }),
+      interactive:false,
+      zIndexOffset:50
     });
-    L.marker(r.latlng, { icon, interactive: false, keyboard: false }).addTo(map);
+    areaMarkers.push(m);
+    areaMarkerMap[c.n]=m;
+    // Start hidden
   });
+
+  buildSidebar();
+  document.getElementById('btn-copy').addEventListener('click',copyCaption);
+  document.getElementById('btn-export').addEventListener('click',exportMap);
+  document.getElementById('hamburger').addEventListener('click',toggleSidebar);
+  document.getElementById('overlay').addEventListener('click',closeSidebar);
+  document.getElementById('mob-handle').addEventListener('click',function(){ document.getElementById('mob-drawer').classList.toggle('open'); });
+  document.getElementById('label-toggle').addEventListener('click',toggleLabels);
+  setStatus('ok','Ready — select a road from the list.');
 }
 
-// ─── Sidebar ──────────────────────────────────────────────
-function buildSidebar() {
-  const list = document.getElementById('road-list');
-  list.innerHTML = '';
+// ── LABEL TOGGLE ──
+function toggleLabels(){
+  labelsVisible=!labelsVisible;
+  var btn=document.getElementById('label-toggle');
+  btn.classList.toggle('off',!labelsVisible);
+  document.getElementById('lt-text').textContent=labelsVisible?'Labels on':'Labels off';
 
-  const cats = [
-    { key:'expressways', label:'Expressways', cls:'exp' },
-    { key:'major_roads', label:'Major roads',  cls:'maj' },
-    { key:'minor_roads', label:'Minor roads',  cls:'min' }
+  if(labelsVisible){
+    // show all area markers + active road callouts
+    areaMarkers.forEach(function(m){ m.addTo(map); });
+    Object.keys(roadState).forEach(function(id){
+      var s=roadState[id];
+      if(s.visible) s.callout.addTo(map);
+    });
+  } else {
+    areaMarkers.forEach(function(m){ map.removeLayer(m); });
+    Object.keys(roadState).forEach(function(id){
+      map.removeLayer(roadState[id].callout);
+    });
+  }
+}
+
+// ── AREA HIGHLIGHT for active road ──
+function highlightAreas(road){
+  // Remove previous highlights
+  areaLayers.forEach(function(l){ map.removeLayer(l); }); areaLayers=[];
+  // Reset all label colours
+  areaMarkers.forEach(function(m){ m.getElement()&&m.getElement().classList.remove('active-area'); });
+
+  if(!road) return;
+  var activeAreas=AREA_MAP[road.short]||[];
+  var activeSet={};
+  activeAreas.forEach(function(a){ activeSet[a]=true; });
+
+  // Add thick boundary outlines for active areas
+  SG_BOUNDARIES.features.forEach(function(f){
+    var name=f.properties.n;
+    if(!activeSet[name]) return;
+    var hl=L.geoJSON(f,{
+      style:{color:'#E8A021',weight:3.5,opacity:0.9,fill:true,fillColor:'#E8A021',fillOpacity:0.08,dashArray:null}
+    }).addTo(map);
+    areaLayers.push(hl);
+  });
+
+  // Colour active area labels
+  if(labelsVisible){
+    activeAreas.forEach(function(name){
+      var m=areaMarkerMap[name];
+      if(m&&m.getElement()) m.getElement().classList.add('active-area');
+    });
+  }
+}
+
+// ── SIDEBAR ──
+function buildSidebar(){
+  var list=document.getElementById('road-list');
+  list.innerHTML='';
+  var cats=[
+    {key:'expressways',label:'Expressways',cls:'exp'},
+    {key:'major_roads',label:'Major roads',cls:'maj'},
+    {key:'minor_roads',label:'Minor roads',cls:'min'}
   ];
-
-  cats.forEach(cat => {
-    const roads = ROADS[cat.key] || [];
-    const wrap  = document.createElement('div');
-    wrap.className = 'road-category';
-
-    const hdr = document.createElement('div');
-    hdr.className = 'category-header ' + cat.cls;
-    hdr.innerHTML =
-      '<span class="category-label">' + cat.label + '</span>' +
-      '<span class="cat-right"><span class="category-count">' + roads.length + '</span>' +
-      '<span class="cat-chev open">▾</span></span>';
-
-    const body = document.createElement('div');
-    body.className = 'category-roads';
-
-    if (!roads.length) {
-      body.innerHTML = '<div class="empty-cat">Coming soon</div>';
+  cats.forEach(function(cat){
+    var roads=(ROADS[cat.key]||[]);
+    var wrap=document.createElement('div'); wrap.className='road-category';
+    var hdr=document.createElement('div'); hdr.className='cat-header '+cat.cls;
+    hdr.innerHTML='<span class="cat-label">'+cat.label+'</span><span class="cat-right"><span class="cat-count">'+roads.length+'</span><span class="cat-chev open">▾</span></span>';
+    var body=document.createElement('div'); body.className='cat-body';
+    if(!roads.length){
+      body.innerHTML='<div class="cat-empty">Coming soon</div>';
     } else {
-      roads.forEach(road => {
-        const item = document.createElement('div');
-        item.className = 'road-item';
-        item.innerHTML =
-          '<span class="road-dot" style="background:' + road.color + '"></span>' +
-          '<span class="road-badge" style="background:' + road.color + '">' + (road.short || road.id.toUpperCase()) + '</span>' +
-          '<span class="road-item-name">' + road.name + '</span>' +
-          '<span class="road-item-km">' + road.length_km + 'km</span>';
-        item.addEventListener('click', () => selectRoad(road, item, cat.key));
+      roads.forEach(function(road){
+        buildRoadLayer(road);
+        var item=document.createElement('div'); item.className='road-item';
+        // starts unchecked
+        item.innerHTML='<span class="road-dot" style="background:'+road.color+'"></span><span class="road-badge" style="background:'+road.color+'">'+road.short+'</span><span class="road-name">'+road.name+'</span><span class="road-km">'+road.length_km+'km</span><span class="road-check" data-id="'+road.id+'"></span>';
+        item.addEventListener('click',function(e){ if(e.target.classList.contains('road-check'))return; selectRoad(road,item); });
+        item.querySelector('.road-check').addEventListener('click',function(e){ e.stopPropagation(); toggleVis(road,this); });
         body.appendChild(item);
       });
     }
-
-    let open = true;
-    hdr.addEventListener('click', () => {
-      open = !open;
-      hdr.querySelector('.cat-chev').classList.toggle('open', open);
-      body.style.maxHeight = open ? body.scrollHeight + 'px' : '0';
+    var open=true;
+    hdr.addEventListener('click',function(){
+      open=!open;
+      hdr.querySelector('.cat-chev').classList.toggle('open',open);
+      body.style.maxHeight=open?(body.scrollHeight+200)+'px':'0';
     });
-    body.style.maxHeight = '9999px';
-
+    body.style.maxHeight='9999px';
     wrap.appendChild(hdr); wrap.appendChild(body);
     list.appendChild(wrap);
   });
 }
 
-// ─── Select ───────────────────────────────────────────────
-function selectRoad(road, itemEl, catKey) {
-  if (activeItem) activeItem.classList.remove('is-active');
-  itemEl.classList.add('is-active');
-  activeItem = itemEl; activeRoad = road;
-  if (window.innerWidth <= 700) closeSidebar();
-  fetchRoadGeometry(road);
-  renderCard(road, catKey);
+function buildRoadLayer(road){
+  var segs=EXP_DATA[road.short];
+  if(!segs||!segs.length) return;
+  var features=segs.map(function(seg){ return {type:'Feature',geometry:{type:'LineString',coordinates:seg},properties:{}}; });
+  var layer=L.geoJSON({type:'FeatureCollection',features:features},{
+    style:{color:road.color,weight:4.5,opacity:0.92,lineCap:'round',lineJoin:'round'}
+  });
+
+  var allLat=[],allLng=[];
+  segs.forEach(function(seg){ seg.forEach(function(c){ allLng.push(c[0]); allLat.push(c[1]); }); });
+  var clat=(Math.min.apply(null,allLat)+Math.max.apply(null,allLat))/2;
+  var clng=(Math.min.apply(null,allLng)+Math.max.apply(null,allLng))/2;
+  var tc=textColor(road.color);
+  var callout=L.marker([clat,clng],{
+    icon:L.divIcon({
+      className:'road-callout-wrap',
+      html:'<span class="road-callout-inner" style="background:'+road.color+';color:'+tc+'">'+road.short+'</span>',
+      iconSize:null,
+      iconAnchor:null
+    }),
+    interactive:false,
+    zIndexOffset:500
+  });
+
+  // Start: layer hidden, callout hidden
+  roadState[road.id]={layer:layer,callout:callout,visible:false,road:road};
+  // Don't add to map yet
 }
 
-// ─── Overpass ─────────────────────────────────────────────
-const ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.openstreetmap.ru/api/interpreter'
-];
-
-async function tryOverpass(query) {
-  for (const ep of ENDPOINTS) {
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 20000);
-      const res = await fetch(ep + '?data=' + encodeURIComponent(query), { signal: ctrl.signal });
-      clearTimeout(timer);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data && data.elements && data.elements.length) return data;
-    } catch(e) { /* try next */ }
-  }
-  throw new Error('All Overpass endpoints unreachable. Please host on a web server (e.g. GitHub Pages) instead of opening locally.');
-}
-
-async function fetchRoadGeometry(road) {
-  if (activeLayer) { map.removeLayer(activeLayer); activeLayer = null; }
-  setStatus('loading', 'Fetching ' + (road.short || road.name) + '…');
-
-  const bbox = '(1.05,103.55,1.50,104.10)';
-  const parts = [];
-  if (road.osm_name) parts.push('  way["name"="' + road.osm_name + '"]' + bbox + ';');
-  if (road.osm_ref)  parts.push('  way["ref"="'  + road.osm_ref  + '"]' + bbox + ';');
-  const query = '[out:json][timeout:25];\n(\n' + parts.join('\n') + '\n);\nout geom;';
-
-  try {
-    const data = await tryOverpass(query);
-    activeLayer = L.geoJSON(waysToGeoJSON(data.elements), {
-      style: { color: road.color, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }
-    }).addTo(map);
-    const b = activeLayer.getBounds();
-    if (b.isValid()) map.fitBounds(b, { padding: [60, 60], maxZoom: 15, animate: true });
-    setStatus('ok', road.name + ' — ' + data.elements.length + ' segments rendered.');
-  } catch(err) {
-    setStatus('error', err.message);
+function toggleVis(road,chkEl){
+  var s=roadState[road.id]; if(!s) return;
+  s.visible=!s.visible;
+  chkEl.classList.toggle('checked',s.visible);
+  if(s.visible){
+    s.layer.addTo(map);
+    if(labelsVisible) s.callout.addTo(map);
+  } else {
+    map.removeLayer(s.layer);
+    map.removeLayer(s.callout);
   }
 }
 
-function waysToGeoJSON(elements) {
-  return {
-    type: 'FeatureCollection',
-    features: elements
-      .filter(el => el.type === 'way' && el.geometry && el.geometry.length > 1)
-      .map(el => ({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: el.geometry.map(p => [p.lon, p.lat]) },
-        properties: {}
-      }))
-  };
+function selectRoad(road,itemEl){
+  if(activeItem) activeItem.classList.remove('active');
+  itemEl.classList.add('active');
+  activeItem=itemEl; activeRoad=road;
+  if(window.innerWidth<=700) closeSidebar();
+  var s=roadState[road.id];
+  if(s){
+    // Auto-enable road when selected
+    if(!s.visible){
+      s.visible=true;
+      var chk=document.querySelector('[data-id="'+road.id+'"]');
+      if(chk) chk.classList.add('checked');
+      s.layer.addTo(map);
+      if(labelsVisible) s.callout.addTo(map);
+    }
+    var b=s.layer.getBounds();
+    if(b.isValid()) map.fitBounds(b,{padding:[60,60],maxZoom:15,animate:true});
+  }
+  highlightAreas(road);
+  showCard(road);
 }
 
-// ─── Info card ────────────────────────────────────────────
-function renderCard(road, catKey) {
-  const catLabel = { expressways:'Expressway', major_roads:'Major road', minor_roads:'Minor road' }[catKey] || 'Road';
+function showCard(road){
+  document.getElementById('card-stripe').style.background=road.color;
+  document.getElementById('card-ref').textContent=road.short;
+  document.getElementById('card-name').textContent=road.name;
+  document.getElementById('meta-length').textContent=road.length_km+' km';
+  document.getElementById('meta-opened').textContent=road.opened||'—';
+  document.getElementById('meta-cat').textContent='Expressway';
 
-  document.getElementById('card-stripe').style.background = road.color;
-  document.getElementById('card-ref').textContent   = road.short || road.id.toUpperCase();
-  document.getElementById('card-name').textContent  = road.name;
-  document.getElementById('meta-length').textContent = road.length_km ? road.length_km + ' km' : '—';
-  document.getElementById('meta-opened').textContent = road.opened   || '—';
-  document.getElementById('meta-cat').textContent    = catLabel;
-
-  const factsEl = document.getElementById('card-facts');
-  factsEl.innerHTML = '';
-  (road.facts || []).forEach(f => {
-    const d = document.createElement('div');
-    d.className = 'fact-item';
-    d.style.borderLeftColor = road.color;
-    d.textContent = f;
+  var factsEl=document.getElementById('card-facts');
+  factsEl.innerHTML='';
+  (road.facts||[]).forEach(function(f){
+    var d=document.createElement('div'); d.className='fact';
+    d.style.borderLeftColor=road.color; d.textContent=f;
     factsEl.appendChild(d);
   });
 
-  const caption = buildCaption(road);
-  document.getElementById('caption-box').textContent = caption;
+  var connEl=document.getElementById('conn-exp');
+  connEl.innerHTML='';
+  (CONNECTIONS[road.short]||[]).forEach(function(s){
+    var col=EXP_COLOR[s]||'#888';
+    var tc=textColor(col);
+    var b=document.createElement('span');
+    b.className='conn-bubble-exp';
+    b.style.background=col; b.style.color=tc;
+    b.textContent=s;
+    connEl.appendChild(b);
+  });
 
-  const btn = document.getElementById('btn-copy');
-  btn.style.background   = road.color;
-  btn.style.borderColor  = road.color;
+  var areaEl=document.getElementById('conn-area');
+  areaEl.innerHTML='';
+  (AREA_MAP[road.short]||[]).forEach(function(a){
+    var b=document.createElement('span');
+    b.className='conn-bubble-area';
+    b.textContent=a;
+    areaEl.appendChild(b);
+  });
 
-  document.getElementById('card-empty').style.display   = 'none';
-  document.getElementById('card-content').style.display = 'flex';
+  var btn=document.getElementById('btn-copy');
+  btn.style.background=road.color; btn.style.borderColor=road.color;
+  document.getElementById('card-empty').style.display='none';
+  document.getElementById('card-content').style.display='flex';
 
-  renderMobile(road, catKey, caption);
+  // Mobile
+  var mobInner=document.getElementById('mob-inner');
+  var connHtml=(CONNECTIONS[road.short]||[]).map(function(s){
+    var col=EXP_COLOR[s]||'#888';
+    var tc=textColor(col);
+    return '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;background:'+col+';color:'+tc+';font-size:10px;font-weight:800;margin:0 4px 4px 0;border:1.5px solid rgba(0,0,0,0.15)">'+s+'</span>';
+  }).join('');
+  var areaHtml=(AREA_MAP[road.short]||[]).map(function(a){
+    return '<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;background:var(--surf2);color:var(--ink-mid);font-size:9px;font-weight:600;margin:0 4px 4px 0;border:1.5px solid var(--border)">'+a+'</span>';
+  }).join('');
+  mobInner.innerHTML=
+    '<div style="height:6px;background:'+road.color+';margin:0 -15px 12px"></div>'+
+    '<div style="font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:2px">'+road.short+' · Expressway</div>'+
+    '<div style="font-size:24px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-bottom:12px;line-height:1">'+road.name+'</div>'+
+    (road.facts||[]).map(function(f){return '<div style="font-size:11px;line-height:1.65;color:var(--ink-mid);border-left:4px solid '+road.color+';padding:7px 10px;margin-bottom:7px;background:var(--surf2);border-radius:0 6px 6px 0">'+f+'</div>';}).join('')+
+    '<div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:var(--ink-ghost);margin:14px 0 6px">Connected</div>'+
+    '<div style="margin-bottom:12px">'+connHtml+'</div>'+
+    '<div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:var(--ink-ghost);margin-bottom:6px">Regions</div>'+
+    '<div>'+areaHtml+'</div>';
+  document.getElementById('mob-drawer').classList.add('open');
 }
 
-function buildCaption(road) {
-  return road.name + ' (' + (road.short || road.id.toUpperCase()) + ')\n\n' +
-    (road.facts || []).join('\n\n') +
-    '\n\n📍 Singapore\n\n' + (road.hashtags || '#Singapore #SingaporeRoads');
+function buildCaption(road){
+  return road.name+' ('+road.short+')\n\n'+(road.facts||[]).join('\n\n')+'\n\n📍 Singapore\n\n'+(road.hashtags||'#Singapore');
 }
 
-function renderMobile(road, catKey, caption) {
-  const catLabel = { expressways:'Expressway', major_roads:'Major road', minor_roads:'Minor road' }[catKey] || 'Road';
-  document.getElementById('mob-inner').innerHTML =
-    '<div style="height:6px;background:' + road.color + ';margin:0 -15px 13px;"></div>' +
-    '<div style="font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:2px">' + (road.short||'') + ' · ' + catLabel + '</div>' +
-    '<div style="font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-bottom:12px;line-height:1">' + road.name + '</div>' +
-    (road.facts||[]).map(f =>
-      '<div style="font-size:11px;line-height:1.65;color:var(--ink-mid);border-left:4px solid ' + road.color + ';border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:7px;background:var(--surface2)">' + f + '</div>'
-    ).join('') +
-    '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:11px;font-size:10px;line-height:1.75;color:var(--ink-dim);white-space:pre-line;margin:12px 0">' + caption + '</div>' +
-    '<div style="display:flex;gap:7px;padding-bottom:2px">' +
-      '<button class="action-btn" style="flex:1;background:' + road.color + ';color:#fff;border-color:' + road.color + ';font-size:10px" onclick="copyCaption()">⊕ Copy</button>' +
-      '<button class="action-btn" style="flex:1;font-size:10px" onclick="exportMap()">↓ Export</button>' +
-    '</div>';
-  document.getElementById('mobile-drawer').classList.add('open');
+function copyCaption(){
+  if(!activeRoad) return;
+  navigator.clipboard.writeText(buildCaption(activeRoad)).then(function(){
+    var btn=document.getElementById('btn-copy');
+    var ob=btn.style.background,obd=btn.style.borderColor,ot=btn.textContent;
+    btn.classList.add('copied'); btn.textContent='✓ Copied!'; btn.style.background=''; btn.style.borderColor='';
+    setTimeout(function(){ btn.classList.remove('copied'); btn.textContent=ot; btn.style.background=ob; btn.style.borderColor=obd; },2400);
+    setStatus('ok','Caption copied.');
+  }).catch(function(){ setStatus('error','Clipboard denied.'); });
 }
 
-// ─── Copy ─────────────────────────────────────────────────
-function copyCaption() {
-  if (!activeRoad) return;
-  navigator.clipboard.writeText(buildCaption(activeRoad)).then(() => {
-    const btn = document.getElementById('btn-copy');
-    if (btn) {
-      const origBg = btn.style.background, origBd = btn.style.borderColor, origTxt = btn.textContent;
-      btn.classList.add('copied'); btn.textContent = '✓ Copied!';
-      btn.style.background = ''; btn.style.borderColor = '';
-      setTimeout(() => { btn.classList.remove('copied'); btn.textContent = origTxt; btn.style.background = origBg; btn.style.borderColor = origBd; }, 2400);
-    }
-    setStatus('ok', 'Caption copied to clipboard.');
-  }).catch(() => setStatus('error', 'Clipboard access denied.'));
-}
-
-// ─── Export ───────────────────────────────────────────────
-function exportMap() {
-  if (!activeRoad) return;
-  setStatus('loading', 'Generating image…');
-  try {
-    leafletImage(map, (err, canvas) => {
-      if (err) { setStatus('error', 'Export failed.'); return; }
-      const a = document.createElement('a');
-      a.download = (activeRoad.short || activeRoad.id) + '_sg_roads.png';
-      a.href = canvas.toDataURL('image/png'); a.click();
-      setStatus('ok', 'Exported ' + a.download);
+function exportMap(){
+  setStatus('loading','Exporting…');
+  try{
+    leafletImage(map,function(err,canvas){
+      if(err){setStatus('error','Export failed.');return;}
+      var a=document.createElement('a');
+      a.download=(activeRoad?activeRoad.short:'sg')+'_roads.png';
+      a.href=canvas.toDataURL('image/png'); a.click();
+      setStatus('ok','Exported '+a.download);
     });
-  } catch { setStatus('error', 'Export unavailable — screenshot manually.'); }
+  }catch(e){setStatus('error','Screenshot manually.');}
 }
 
-// ─── Status ───────────────────────────────────────────────
-function setStatus(state, msg) {
-  document.getElementById('status-dot').className = state || '';
-  document.getElementById('status-text').textContent = msg;
-}
-
-// ─── Mobile sidebar ───────────────────────────────────────
-function openSidebar() {
-  document.getElementById('sidebar').classList.add('open');
-  document.getElementById('hamburger').classList.add('open');
-  document.getElementById('sidebar-overlay').classList.add('active');
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('hamburger').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('active');
-}
-
-// ─── UI bindings ──────────────────────────────────────────
-function bindUI() {
-  document.getElementById('hamburger').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
-  });
-  document.getElementById('sidebar-overlay').addEventListener('click', closeSidebar);
-  document.getElementById('mob-handle').addEventListener('click', () => {
-    document.getElementById('mobile-drawer').classList.toggle('open');
-  });
-  document.getElementById('btn-copy').addEventListener('click', copyCaption);
-  document.getElementById('btn-export').addEventListener('click', exportMap);
-}
+function setStatus(s,m){ document.getElementById('status-dot').className=s||''; document.getElementById('status-text').textContent=m; }
+function toggleSidebar(){ document.getElementById('sidebar').classList.contains('open')?closeSidebar():openSidebar(); }
+function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('hamburger').classList.add('open'); document.getElementById('overlay').classList.add('active'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('hamburger').classList.remove('open'); document.getElementById('overlay').classList.remove('active'); }
 </script>
 </body>
 </html>
