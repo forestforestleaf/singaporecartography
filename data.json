@@ -1,0 +1,157 @@
+{
+  "_note": "Edit the 'facts' and 'hashtags' fields for each road. Do not change 'id', 'osm_name', or 'osm_ref' as these are used to fetch road data from the map.",
+  "expressways": [
+    {
+      "id": "aye",
+      "name": "Ayer Rajah Expressway",
+      "short": "AYE",
+      "osm_name": "Ayer Rajah Expressway",
+      "osm_ref": "AYE",
+      "length_km": 40,
+      "opened": 1988,
+      "facts": [
+        "The Ayer Rajah Expressway (AYE) stretches approximately 40km across Singapore's southern corridor, connecting Jurong in the west to the city centre.",
+        "It passes through some of Singapore's most significant industrial and educational zones, including the National University of Singapore and one-north.",
+        "The AYE was progressively built in stages from 1988, making it one of Singapore's longer expressway construction projects."
+      ],
+      "hashtags": "#AYE #AyerRajahExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "bke",
+      "name": "Bukit Timah Expressway",
+      "short": "BKE",
+      "osm_name": "Bukit Timah Expressway",
+      "osm_ref": "BKE",
+      "length_km": 11,
+      "opened": 1986,
+      "facts": [
+        "The Bukit Timah Expressway (BKE) is one of Singapore's shorter expressways at approximately 11km, running north from the PIE junction toward Woodlands.",
+        "It passes alongside the Bukit Timah Nature Reserve, one of the last remaining primary rainforest patches in Singapore.",
+        "Opened in 1986, the BKE provides a key corridor linking the central region to the causeway and Johor Bahru."
+      ],
+      "hashtags": "#BKE #BukitTimahExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "cte",
+      "name": "Central Expressway",
+      "short": "CTE",
+      "osm_name": "Central Expressway",
+      "osm_ref": "CTE",
+      "length_km": 17,
+      "opened": 1991,
+      "facts": [
+        "The Central Expressway (CTE) is Singapore's primary north-south spine, running approximately 17km from Toa Payoh in the north through the city centre.",
+        "It includes Singapore's longest road tunnel, passing beneath the Bukit Timah area and the Singapore River district.",
+        "The CTE is notorious for being one of Singapore's most congested expressways during peak hours, particularly at its city-bound tunnels."
+      ],
+      "hashtags": "#CTE #CentralExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "ecp",
+      "name": "East Coast Parkway",
+      "short": "ECP",
+      "osm_name": "East Coast Parkway",
+      "osm_ref": "ECP",
+      "length_km": 19,
+      "opened": 1981,
+      "facts": [
+        "The East Coast Parkway (ECP) was Singapore's first expressway, opened in 1981 and running approximately 19km along the southern coastline.",
+        "Much of the land beneath the ECP is reclaimed — the shoreline here did not exist before the 1970s land reclamation programme.",
+        "The ECP connects the CBD to Changi Airport and passes alongside East Coast Park, one of Singapore's most popular recreational corridors."
+      ],
+      "hashtags": "#ECP #EastCoastParkway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "kje",
+      "name": "Kranji Expressway",
+      "short": "KJE",
+      "osm_name": "Kranji Expressway",
+      "osm_ref": "KJE",
+      "length_km": 9,
+      "opened": 1994,
+      "facts": [
+        "The Kranji Expressway (KJE) is Singapore's shortest expressway at approximately 9km, connecting Choa Chu Kang to Woodlands and the BKE.",
+        "It passes through the northwestern corridor of Singapore, serving new towns like Bukit Panjang and Choa Chu Kang.",
+        "Opened in 1994, the KJE was built to support rapid population growth in Singapore's western new towns during the 1990s."
+      ],
+      "hashtags": "#KJE #KranjiExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "kpe",
+      "name": "Kallang–Paya Lebar Expressway",
+      "short": "KPE",
+      "osm_name": "Kallang–Paya Lebar Expressway",
+      "osm_ref": "KPE",
+      "length_km": 12,
+      "opened": 2008,
+      "facts": [
+        "The Kallang–Paya Lebar Expressway (KPE) opened in 2008 and includes the world's longest underground expressway tunnel at the time of its completion.",
+        "At approximately 12km in total, around 9km of the KPE runs underground, making it a significant feat of tunnelling engineering in Singapore.",
+        "The KPE connects the eastern regions of Singapore to the city, providing relief to the heavily trafficked ECP and CTE corridors."
+      ],
+      "hashtags": "#KPE #KallangPayaLebarExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "mce",
+      "name": "Marina Coastal Expressway",
+      "short": "MCE",
+      "osm_name": "Marina Coastal Expressway",
+      "osm_ref": "MCE",
+      "length_km": 5,
+      "opened": 2013,
+      "facts": [
+        "The Marina Coastal Expressway (MCE) is Singapore's newest and shortest expressway, opened in 2013 at approximately 5km in length.",
+        "It runs almost entirely underground, connecting the ECP to the AYE beneath the Marina Bay reclaimed land area.",
+        "The MCE completed Singapore's expressway ring road system, closing the final gap in the city's highway network."
+      ],
+      "hashtags": "#MCE #MarinaCoastalExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "pie",
+      "name": "Pan Island Expressway",
+      "short": "PIE",
+      "osm_name": "Pan Island Expressway",
+      "osm_ref": "PIE",
+      "length_km": 42,
+      "opened": 1966,
+      "facts": [
+        "The Pan Island Expressway (PIE) is Singapore's longest expressway at approximately 42km, stretching from Tuas in the west to Changi Airport in the east.",
+        "Construction began in 1966, making it one of the earliest expressways built as Singapore rapidly developed its road infrastructure.",
+        "The PIE connects virtually every other expressway in Singapore, making it the backbone of the island's highway network."
+      ],
+      "hashtags": "#PIE #PanIslandExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "sle",
+      "name": "Seletar Expressway",
+      "short": "SLE",
+      "osm_name": "Seletar Expressway",
+      "osm_ref": "SLE",
+      "length_km": 13,
+      "opened": 1994,
+      "facts": [
+        "The Seletar Expressway (SLE) runs approximately 13km through Singapore's north, connecting Woodlands to the TPE and the northeastern regions.",
+        "It passes close to Seletar Airport, Singapore's general aviation airport and one of the oldest airfields in Southeast Asia.",
+        "The SLE opened in 1994 and forms a key part of the northern expressway loop alongside the BKE and TPE."
+      ],
+      "hashtags": "#SLE #SeletarExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    },
+    {
+      "id": "tpe",
+      "name": "Tampines Expressway",
+      "short": "TPE",
+      "osm_name": "Tampines Expressway",
+      "osm_ref": "TPE",
+      "length_km": 15,
+      "opened": 1991,
+      "facts": [
+        "The Tampines Expressway (TPE) stretches approximately 15km through Singapore's northeastern corridor, connecting the SLE to Changi.",
+        "It serves the large residential towns of Sengkang, Punggol, and Tampines, some of Singapore's most densely populated new towns.",
+        "The TPE opened in 1991 and has become a critical artery as the northeastern region of Singapore has grown significantly in population."
+      ],
+      "hashtags": "#TPE #TampinesExpressway #Singapore #SingaporeRoads #SGExpressway #SingaporeInfrastructure"
+    }
+  ],
+  "major_roads": [],
+  "minor_roads": []
+}

@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Singapore Cartography</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:     #fafff2;
+      --surface:   #f4efe4;
+      --surface2:  #ece5d6;
+      --border:    #e1d9c8;
+      --ink:       #0a0a0a;
+      --ink-mid:   #2a2a2a;
+      --ink-dim:   #6a6560;
+      --ink-ghost: #a09890;
+
+      /* Road category colours */
+      --exp-col:   #7a1535;
+      --maj-col:   #0a5c4a;
+      --min-col:   #8832c8;
+
+      /* Full expressway palette — one per road */
+      --aye-c: #d63c2f;
+      --bke-c: #e8a020;
+      --cte-c: #0a5c4a;
+      --ecp-c: #1e4d8c;
+      --kje-c: #8832c8;
+      --kpe-c: #d4541a;
+      --mce-c: #7a1535;
+      --pie-c: #c8328a;
+      --sle-c: #2a7c6f;
+      --tpe-c: #4a7a1e;
+
+      --font: Helvetica Neue, Helvetica, Arial, sans-serif;
+      --radius: 14px;
+      --shadow: 5px 5px 0 rgba(0,0,0,0.72);
+      --sidebar-w: 264px;
+      --card-w: 308px;
+      --status-h: 26px;
+      --t: 0.2s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; }
+
+    #app { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
+
+    /* ── MAP ──────────────────────────────────────── */
+    #map { position: absolute; inset: 0; bottom: var(--status-h); z-index: 1; }
+
+    .leaflet-control-attribution { display: none !important; }
+    .leaflet-bar { border: 2px solid var(--ink) !important; border-radius: 10px !important; overflow: hidden; box-shadow: 3px 3px 0 rgba(0,0,0,0.65) !important; }
+    .leaflet-bar a { background: var(--cream) !important; color: var(--ink) !important; border-color: var(--border) !important; font-weight: 700 !important; }
+    .leaflet-bar a:hover { background: var(--surface2) !important; }
+    .leaflet-control-zoom { margin-top: 16px !important; margin-right: 16px !important; }
+
+    /* ── LEFT SIDEBAR — always visible floating card ── */
+    #sidebar {
+      position: absolute;
+      top: 16px; left: 16px;
+      bottom: calc(var(--status-h) + 16px);
+      width: var(--sidebar-w);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      background: var(--cream);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 16px 16px 13px;
+      background: var(--ink);
+      flex-shrink: 0;
+      border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
+    }
+
+    .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; color: var(--cream); line-height: 1.2; }
+    .logo-accent { color: #e8a020; }
+    .tagline { font-size: 9px; color: #777; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; margin-top: 4px; }
+
+    #road-list { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    #road-list::-webkit-scrollbar { width: 3px; }
+    #road-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .road-category { border-bottom: 1.5px solid var(--border); }
+
+    .category-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 13px; height: 32px;
+      cursor: pointer; user-select: none;
+      border-left: 4px solid transparent;
+      transition: background var(--t);
+    }
+    .category-header:hover { background: var(--surface2); }
+    .category-header.exp { border-left-color: var(--exp-col); }
+    .category-header.maj { border-left-color: var(--maj-col); }
+    .category-header.min { border-left-color: var(--min-col); }
+
+    .category-label { font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
+    .cat-right { display: flex; align-items: center; gap: 5px; }
+    .category-count { font-size: 8.5px; color: var(--ink-ghost); }
+    .cat-chev { font-size: 9px; color: var(--ink-ghost); display: inline-block; transition: transform var(--t); }
+    .cat-chev.open { transform: rotate(180deg); }
+
+    .category-roads { overflow: hidden; }
+
+    .road-item {
+      display: flex; align-items: center;
+      padding: 0 13px; height: 38px;
+      cursor: pointer; gap: 9px;
+      border-left: 4px solid transparent;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--t);
+    }
+    .road-item:last-child { border-bottom: none; }
+    .road-item:hover { background: var(--surface2); }
+    .road-item.is-active { background: rgba(0,0,0,0.04); }
+
+    .road-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0; border: 2px solid rgba(0,0,0,0.15);
+      transition: transform var(--t);
+    }
+    .road-item.is-active .road-dot { transform: scale(1.25); border-color: rgba(0,0,0,0.3); }
+
+    .road-badge {
+      font-size: 8px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 2px 5px; border-radius: 4px; flex-shrink: 0;
+      min-width: 32px; text-align: center;
+      color: #fff; transition: all var(--t);
+    }
+
+    .road-item-name { font-size: 10.5px; font-weight: 600; color: var(--ink-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .road-item.is-active .road-item-name { color: var(--ink); font-weight: 700; }
+    .road-item-km { margin-left: auto; font-size: 8.5px; color: var(--ink-ghost); flex-shrink: 0; }
+    .empty-cat { padding: 9px 13px; font-size: 9px; color: var(--ink-ghost); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+
+    /* ── RIGHT INFO CARD — always visible, starts empty ── */
+    #info-card {
+      position: absolute;
+      top: 16px; right: 16px;
+      bottom: calc(var(--status-h) + 16px);
+      width: var(--card-w);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      background: var(--cream);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    #card-stripe { height: 7px; background: var(--border); flex-shrink: 0; transition: background 0.3s; }
+
+    #card-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px; padding: 28px; text-align: center;
+    }
+    .empty-hatch {
+      width: 80px; height: 80px;
+      background-image: repeating-linear-gradient(-45deg, var(--border) 0, var(--border) 1px, transparent 1px, transparent 7px);
+      border: 2px solid var(--border); border-radius: 10px;
+      opacity: 0.7;
+    }
+    #card-empty p { font-size: 10px; font-weight: 600; color: var(--ink-ghost); letter-spacing: 0.08em; line-height: 1.8; max-width: 180px; }
+
+    #card-content { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+
+    #card-header { padding: 14px 16px 13px; border-bottom: 1.5px solid var(--border); flex-shrink: 0; }
+    #card-ref { font-size: 8.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-ghost); margin-bottom: 2px; }
+    #card-name { font-size: 28px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; line-height: 1; margin-bottom: 13px; }
+
+    #card-meta { display: flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .meta-item { flex: 1; padding: 6px 9px; border-right: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
+    .meta-item:last-child { border-right: none; }
+    .meta-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.13em; color: var(--ink-ghost); }
+    .meta-value { font-size: 13px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+
+    #card-body { flex: 1; overflow-y: auto; padding: 14px 16px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    #card-body::-webkit-scrollbar { width: 3px; }
+    #card-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .sec-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-ghost); margin-bottom: 9px; }
+    #card-facts { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
+    .fact-item { padding: 9px 11px; background: var(--surface2); border-radius: 7px; border-left: 4px solid var(--border); font-size: 11px; font-weight: 500; line-height: 1.65; color: var(--ink-mid); }
+
+    #caption-box { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 7px; padding: 11px; font-size: 10px; font-weight: 500; line-height: 1.75; color: var(--ink-dim); white-space: pre-line; word-break: break-word; margin-bottom: 8px; }
+
+    #card-footer { padding: 11px 16px 14px; border-top: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
+    .action-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 14px; border: 2px solid var(--ink); border-radius: 8px;
+      background: var(--surface2); color: var(--ink);
+      font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+      cursor: pointer; transition: all var(--t); width: 100%;
+    }
+    .action-btn:hover { background: var(--ink); color: var(--cream); }
+    .action-btn.primary { color: #fff; border-color: transparent; }
+    .action-btn.primary:hover { filter: brightness(0.85); }
+    .action-btn.copied { background: var(--maj-col) !important; color: #fff; border-color: var(--maj-col) !important; }
+
+    /* ── STATUS BAR ─────────────────────────────────── */
+    #status-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: var(--status-h);
+      background: var(--ink); display: flex; align-items: center;
+      padding: 0 14px; z-index: 500; gap: 8px;
+    }
+    #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #444; flex-shrink: 0; transition: background 0.3s; }
+    #status-dot.loading { background: #e8a020; animation: pulse 1s infinite; }
+    #status-dot.error   { background: #d63c2f; }
+    #status-dot.ok      { background: #0a5c4a; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.2} }
+    #status-text { font-size: 9px; font-weight: 600; letter-spacing: 0.1em; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #status-coords { margin-left: auto; font-size: 9px; font-weight: 600; color: #555; flex-shrink: 0; }
+
+    /* ── HAMBURGER (mobile) ─────────────────────────── */
+    #hamburger {
+      display: none; position: fixed; top: 14px; left: 14px; z-index: 600;
+      background: var(--ink); border: none; border-radius: 10px;
+      width: 40px; height: 40px; flex-direction: column; align-items: center;
+      justify-content: center; gap: 5px; cursor: pointer;
+      box-shadow: 3px 3px 0 rgba(0,0,0,0.65);
+    }
+    #hamburger span { display: block; width: 18px; height: 2px; background: var(--cream); border-radius: 1px; transition: transform var(--t), opacity var(--t); }
+    #hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    #hamburger.open span:nth-child(2) { opacity: 0; }
+    #hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 350; }
+
+    /* ── MOBILE BOTTOM DRAWER ───────────────────────── */
+    #mobile-drawer {
+      display: none; position: fixed; left: 12px; right: 12px;
+      bottom: calc(var(--status-h) + 10px);
+      background: var(--cream); border: 2.5px solid var(--ink);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      z-index: 450; transform: translateY(110%);
+      transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+      max-height: 64vh; overflow-y: auto;
+    }
+    #mobile-drawer.open { transform: translateY(0); }
+    #mob-handle { width: 30px; height: 3px; background: var(--border); border-radius: 2px; margin: 9px auto 5px; cursor: pointer; }
+    #mob-inner { padding: 0 15px 18px; }
+
+    /* ── RESPONSIVE ─────────────────────────────────── */
+    @media (max-width: 980px) {
+      #info-card { display: none; }
+      #mobile-drawer { display: block; }
+    }
+    @media (max-width: 700px) {
+      #sidebar { display: none; }
+      #sidebar.open { display: flex; position: fixed; left: 10px; top: 10px; bottom: calc(var(--status-h) + 10px); z-index: 400; width: 260px; }
+      #sidebar-overlay { display: block; opacity: 0; pointer-events: none; transition: opacity var(--t); }
+      #sidebar-overlay.active { opacity: 1; pointer-events: all; }
+      #hamburger { display: flex; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <div id="map"></div>
+
+  <button id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  <div id="sidebar-overlay"></div>
+
+  <!-- Left floating sidebar -->
+  <nav id="sidebar">
+    <div id="sidebar-header">
+      <div class="logo">Singapore<span class="logo-accent">Cartography</span></div>
+      <div class="tagline">Road atlas</div>
+    </div>
+    <div id="road-list"></div>
+  </nav>
+
+  <!-- Right floating info card -->
+  <aside id="info-card">
+    <div id="card-stripe"></div>
+    <div id="card-empty">
+      <div class="empty-hatch"></div>
+      <p>Select a road to view facts and generate a caption</p>
+    </div>
+    <div id="card-content">
+      <div id="card-header">
+        <div id="card-ref"></div>
+        <div id="card-name"></div>
+        <div id="card-meta">
+          <div class="meta-item"><span class="meta-label">Length</span><span class="meta-value" id="meta-length">—</span></div>
+          <div class="meta-item"><span class="meta-label">Opened</span><span class="meta-value" id="meta-opened">—</span></div>
+          <div class="meta-item"><span class="meta-label">Type</span><span class="meta-value" id="meta-cat">—</span></div>
+        </div>
+      </div>
+      <div id="card-body">
+        <div class="sec-label">Road facts</div>
+        <div id="card-facts"></div>
+        <div class="sec-label">Instagram caption</div>
+        <div id="caption-box"></div>
+      </div>
+      <div id="card-footer">
+        <button class="action-btn primary" id="btn-copy">⊕ Copy caption</button>
+        <button class="action-btn" id="btn-export">↓ Export map image</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile drawer -->
+  <div id="mobile-drawer">
+    <div id="mob-handle"></div>
+    <div id="mob-inner"></div>
+  </div>
+
+  <!-- Status bar -->
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <div id="status-text">Initialising…</div>
+    <div id="status-coords"></div>
+  </div>
+</div>
+
+<!-- Load Leaflet THEN run all code -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="initApp()" onerror="document.getElementById('status-text').textContent='Failed to load Leaflet. Check internet connection.'"></script>
+
+<script>
+// ─── leaflet-image inlined ─────────────────────────────────────────────────
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.leafletImage=f()}})(function(){var define,module,exports;return(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){var queue=require('d3-queue').queue;var cacheBusterDate=+new Date();module.exports=function leafletImage(map,callback){var dimensions=map.getSize(),layerQueue=new queue(1);var canvas=document.createElement('canvas');canvas.width=dimensions.x;canvas.height=dimensions.y;var ctx=canvas.getContext('2d');var dummycanvas=document.createElement('canvas');dummycanvas.width=1;dummycanvas.height=1;var dummyctx=dummycanvas.getContext('2d');dummyctx.fillStyle='rgba(0,0,0,0)';dummyctx.fillRect(0,0,1,1);map.eachLayer(drawTileLayer);if(map._pathRoot){layerQueue.defer(handlePathRoot,map._pathRoot)}else if(map._panes){var firstCanvas=map._panes.overlayPane.getElementsByTagName('canvas').item(0);if(firstCanvas){layerQueue.defer(handlePathRoot,firstCanvas)}}map.eachLayer(drawMarkerLayer);layerQueue.awaitAll(layersDone);function drawTileLayer(l){if(l instanceof L.TileLayer)layerQueue.defer(handleTileLayer,l)}function drawMarkerLayer(l){if(l instanceof L.Marker&&l.options.icon instanceof L.Icon){layerQueue.defer(handleMarkerLayer,l)}}function done(){callback(null,canvas)}function layersDone(err,layers){if(err)throw err;layers.forEach(function(layer){if(layer&&layer.canvas){ctx.drawImage(layer.canvas,0,0)}});done()}function handleTileLayer(layer,callback){var canvas=document.createElement('canvas');canvas.width=dimensions.x;canvas.height=dimensions.y;var ctx=canvas.getContext('2d'),bounds=map.getPixelBounds(),zoom=map.getZoom(),tileSize=layer.options.tileSize;if(zoom>layer.options.maxZoom||zoom<layer.options.minZoom){return callback()}var tileBounds=L.bounds(bounds.min.divideBy(tileSize)._floor(),bounds.max.divideBy(tileSize)._floor()),tiles=[],j,i,tileQueue=new queue(1);for(j=tileBounds.min.y;j<=tileBounds.max.y;j++){for(i=tileBounds.min.x;i<=tileBounds.max.x;i++){tiles.push(new L.Point(i,j))}}tiles.forEach(function(tilePoint){var originalTilePoint=tilePoint.clone();if(layer._adjustTilePoint){layer._adjustTilePoint(tilePoint)}var tilePos=originalTilePoint.scaleBy(new L.Point(tileSize,tileSize)).subtract(bounds.min);if(tilePoint.y>=0){var url=addCacheString(layer.getTileUrl(tilePoint));tileQueue.defer(loadTile,url,tilePos,tileSize)}});tileQueue.awaitAll(tileQueueFinish);function loadTile(url,tilePos,tileSize,callback){var im=new Image();im.crossOrigin='';im.onload=function(){callback(null,{img:this,pos:tilePos,size:tileSize})};im.onerror=function(){callback(null,{img:dummycanvas,pos:tilePos,size:tileSize})};im.src=url}function tileQueueFinish(err,data){data.forEach(drawTile);callback(null,{canvas:canvas})}function drawTile(d){ctx.drawImage(d.img,Math.floor(d.pos.x),Math.floor(d.pos.y),d.size,d.size)}}function handlePathRoot(root,callback){var bounds=map.getPixelBounds(),origin=map.getPixelOrigin(),canvas=document.createElement('canvas');canvas.width=dimensions.x;canvas.height=dimensions.y;var ctx=canvas.getContext('2d');var pos=L.DomUtil.getPosition(root).subtract(bounds.min).add(origin);try{ctx.drawImage(root,pos.x,pos.y,canvas.width-(pos.x*2),canvas.height-(pos.y*2));callback(null,{canvas:canvas})}catch(e){console.error(e)}}function handleMarkerLayer(marker,callback){var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),pixelBounds=map.getPixelBounds(),minPoint=new L.Point(pixelBounds.min.x,pixelBounds.min.y),pixelPoint=map.project(marker.getLatLng()),im=new Image(),options=marker.options.icon.options,size=options.iconSize,pos=pixelPoint.subtract(minPoint),anchor=L.point(options.iconAnchor||size&&size.divideBy(2,true));if(size instanceof L.Point)size=[size.x,size.y];var x=Math.round(pos.x-size[0]+anchor.x),y=Math.round(pos.y-anchor.y);canvas.width=dimensions.x;canvas.height=dimensions.y;im.crossOrigin='';im.onload=function(){ctx.drawImage(this,x,y,size[0],size[1]);callback(null,{canvas:canvas})};im.src=marker._icon.src}function addCacheString(url){if(/^\s*data:/.test(url))return url;return url+((url.match(/\?/))? '&':'?')+'cache='+cacheBusterDate}};},{"d3-queue":2}],2:[function(require,module,exports){(function(global,factory){typeof exports==='object'&&typeof module!=='undefined'?factory(exports):typeof define==='function'&&define.amd?define(['exports'],factory):(factory((global.d3_queue=global.d3_queue||{})))}(this,function(exports){'use strict';var slice=[].slice;var noabort={};function Queue(size){if(!(size>=1))throw new Error;this._size=size;this._call=this._error=null;this._tasks=[];this._data=[];this._waiting=this._active=this._ended=this._start=0}Queue.prototype=queue.prototype={constructor:Queue,defer:function(callback){if(typeof callback!=="function"||this._call)throw new Error;if(this._error!=null)return this;var t=slice.call(arguments,1);t.push(callback);++this._waiting,this._tasks.push(t);poke(this);return this},abort:function(){if(this._error==null)abort(this,new Error("abort"));return this},await:function(callback){if(typeof callback!=="function"||this._call)throw new Error;this._call=function(error,results){callback.apply(null,[error].concat(results))};maybeNotify(this);return this},awaitAll:function(callback){if(typeof callback!=="function"||this._call)throw new Error;this._call=callback;maybeNotify(this);return this}};function poke(q){if(!q._start)try{start(q)}catch(e){if(q._tasks[q._ended+q._active-1])abort(q,e)}}function start(q){while(q._start=q._waiting&&q._active<q._size){var i=q._ended+q._active,t=q._tasks[i],j=t.length-1,c=t[j];t[j]=end(q,i);--q._waiting,++q._active;t=c.apply(null,t);if(!q._tasks[i])continue;q._tasks[i]=t||noabort}}function end(q,i){return function(e,r){if(!q._tasks[i])return;--q._active,++q._ended;q._tasks[i]=null;if(q._error!=null)return;if(e!=null){abort(q,e)}else{q._data[i]=r;if(q._waiting)poke(q);else maybeNotify(q)}}}function abort(q,e){var i=q._tasks.length,t;q._error=e;q._data=undefined;q._waiting=NaN;while(--i>=0){if(t=q._tasks[i]){q._tasks[i]=null;if(t.abort)try{t.abort()}catch(e){}}}q._active=NaN;maybeNotify(q)}function maybeNotify(q){if(!q._active&&q._call)q._call(q._error,q._data)}function queue(concurrency){return new Queue(arguments.length?+concurrency:Infinity)}exports.queue=queue}))},{}]},{},[1])(1)});
+
+// ─── Road data ────────────────────────────────────────────
+const ROADS = {
+  expressways: [
+    { id:"aye", name:"Ayer Rajah Expressway",         short:"AYE", color:"#d63c2f", osm_name:"Ayer Rajah Expressway",        osm_ref:"AYE", length_km:40, opened:1988, facts:["The Ayer Rajah Expressway (AYE) stretches approximately 40km across Singapore's southern corridor, connecting Jurong in the west to the city centre.","It passes through some of Singapore's most significant industrial and educational zones, including the National University of Singapore and one-north.","The AYE was progressively built in stages from 1988, making it one of Singapore's longer expressway construction projects."], hashtags:"#AYE #AyerRajahExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"bke", name:"Bukit Timah Expressway",        short:"BKE", color:"#e8a020", osm_name:"Bukit Timah Expressway",       osm_ref:"BKE", length_km:11, opened:1986, facts:["The Bukit Timah Expressway (BKE) is one of Singapore's shorter expressways at approximately 11km, running north from the PIE junction toward Woodlands.","It passes alongside the Bukit Timah Nature Reserve, one of the last remaining primary rainforest patches in Singapore.","Opened in 1986, the BKE provides a key corridor linking the central region to the causeway and Johor Bahru."], hashtags:"#BKE #BukitTimahExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"cte", name:"Central Expressway",            short:"CTE", color:"#0a5c4a", osm_name:"Central Expressway",            osm_ref:"CTE", length_km:17, opened:1991, facts:["The Central Expressway (CTE) is Singapore's primary north-south spine, running approximately 17km from Toa Payoh through the city centre.","It includes Singapore's longest road tunnel, passing beneath the Bukit Timah area and the Singapore River district.","The CTE is notorious for being one of Singapore's most congested expressways during peak hours, particularly at its city-bound tunnels."], hashtags:"#CTE #CentralExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"ecp", name:"East Coast Parkway",            short:"ECP", color:"#1e4d8c", osm_name:"East Coast Parkway",            osm_ref:"ECP", length_km:19, opened:1981, facts:["The East Coast Parkway (ECP) was Singapore's first expressway, opened in 1981 and running approximately 19km along the southern coastline.","Much of the land beneath the ECP is reclaimed — the shoreline here did not exist before the 1970s land reclamation programme.","The ECP connects the CBD to Changi Airport and passes alongside East Coast Park, one of Singapore's most popular recreational corridors."], hashtags:"#ECP #EastCoastParkway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"kje", name:"Kranji Expressway",             short:"KJE", color:"#8832c8", osm_name:"Kranji Expressway",             osm_ref:"KJE", length_km:9,  opened:1994, facts:["The Kranji Expressway (KJE) is Singapore's shortest expressway at approximately 9km, connecting Choa Chu Kang to Woodlands and the BKE.","It passes through the northwestern corridor of Singapore, serving new towns like Bukit Panjang and Choa Chu Kang.","Opened in 1994, the KJE was built to support rapid population growth in Singapore's western new towns during the 1990s."], hashtags:"#KJE #KranjiExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"kpe", name:"Kallang–Paya Lebar Expressway", short:"KPE", color:"#d4541a", osm_name:"Kallang–Paya Lebar Expressway", osm_ref:"KPE", length_km:12, opened:2008, facts:["The Kallang–Paya Lebar Expressway (KPE) opened in 2008 and includes the world's longest underground expressway tunnel at the time of its completion.","At approximately 12km in total, around 9km of the KPE runs underground, making it a significant feat of tunnelling engineering in Singapore.","The KPE connects the eastern regions of Singapore to the city, providing relief to the heavily trafficked ECP and CTE corridors."], hashtags:"#KPE #KallangPayaLebarExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"mce", name:"Marina Coastal Expressway",     short:"MCE", color:"#c8328a", osm_name:"Marina Coastal Expressway",     osm_ref:"MCE", length_km:5,  opened:2013, facts:["The Marina Coastal Expressway (MCE) is Singapore's newest and shortest expressway, opened in 2013 at approximately 5km in length.","It runs almost entirely underground, connecting the ECP to the AYE beneath the Marina Bay reclaimed land area.","The MCE completed Singapore's expressway ring road system, closing the final gap in the city's highway network."], hashtags:"#MCE #MarinaCoastalExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"pie", name:"Pan Island Expressway",         short:"PIE", color:"#7a1535", osm_name:"Pan Island Expressway",          osm_ref:"PIE", length_km:42, opened:1966, facts:["The Pan Island Expressway (PIE) is Singapore's longest expressway at approximately 42km, stretching from Tuas in the west to Changi Airport in the east.","Construction began in 1966, making it one of the earliest expressways built as Singapore rapidly developed its road infrastructure.","The PIE connects virtually every other expressway in Singapore, making it the backbone of the island's highway network."], hashtags:"#PIE #PanIslandExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"sle", name:"Seletar Expressway",            short:"SLE", color:"#2a7c6f", osm_name:"Seletar Expressway",             osm_ref:"SLE", length_km:13, opened:1994, facts:["The Seletar Expressway (SLE) runs approximately 13km through Singapore's north, connecting Woodlands to the TPE and the northeastern regions.","It passes close to Seletar Airport, Singapore's general aviation airport and one of the oldest airfields in Southeast Asia.","The SLE opened in 1994 and forms a key part of the northern expressway loop alongside the BKE and TPE."], hashtags:"#SLE #SeletarExpressway #Singapore #SingaporeRoads #SGExpressway" },
+    { id:"tpe", name:"Tampines Expressway",           short:"TPE", color:"#4a7a1e", osm_name:"Tampines Expressway",            osm_ref:"TPE", length_km:15, opened:1991, facts:["The Tampines Expressway (TPE) stretches approximately 15km through Singapore's northeastern corridor, connecting the SLE to Changi.","It serves the large residential towns of Sengkang, Punggol, and Tampines, some of Singapore's most densely populated new towns.","The TPE opened in 1991 and has become a critical artery as the northeastern region of Singapore has grown significantly in population."], hashtags:"#TPE #TampinesExpressway #Singapore #SingaporeRoads #SGExpressway" }
+  ],
+  major_roads: [],
+  minor_roads: []
+};
+
+// Singapore planning regions with approx label positions
+const SG_REGIONS = [
+  { name: "Central Region",   latlng: [1.3200, 103.8350], color: "#6a6560" },
+  { name: "North Region",     latlng: [1.4200, 103.8050], color: "#6a6560" },
+  { name: "North-East Region",latlng: [1.3850, 103.8950], color: "#6a6560" },
+  { name: "East Region",      latlng: [1.3350, 103.9600], color: "#6a6560" },
+  { name: "West Region",      latlng: [1.3350, 103.6900], color: "#6a6560" }
+];
+
+// GeoJSON boundaries (simplified polygons for each planning region)
+const REGION_GEOJSON = {
+  type: "FeatureCollection",
+  features: [
+    { type:"Feature", properties:{ name:"Central Region" }, geometry:{ type:"Polygon", coordinates:[[
+      [103.7500,1.2800],[103.7800,1.2600],[103.8200,1.2550],[103.8700,1.2700],[103.9000,1.2900],
+      [103.9100,1.3200],[103.8900,1.3600],[103.8600,1.3800],[103.8200,1.3850],[103.7800,1.3700],
+      [103.7500,1.3400],[103.7300,1.3100],[103.7500,1.2800]
+    ]]}},
+    { type:"Feature", properties:{ name:"North Region" }, geometry:{ type:"Polygon", coordinates:[[
+      [103.6800,1.3800],[103.7400,1.3700],[103.8200,1.3850],[103.8600,1.3800],[103.9000,1.3900],
+      [103.9300,1.4000],[103.9400,1.4400],[103.8800,1.4700],[103.8200,1.4800],[103.7600,1.4600],
+      [103.7000,1.4400],[103.6700,1.4200],[103.6600,1.3900],[103.6800,1.3800]
+    ]]}},
+    { type:"Feature", properties:{ name:"North-East Region" }, geometry:{ type:"Polygon", coordinates:[[
+      [103.8600,1.3800],[103.8900,1.3600],[103.9100,1.3200],[103.9300,1.3400],[103.9600,1.3500],
+      [103.9900,1.3700],[104.0000,1.4000],[103.9700,1.4200],[103.9400,1.4400],[103.9300,1.4000],
+      [103.9000,1.3900],[103.8600,1.3800]
+    ]]}},
+    { type:"Feature", properties:{ name:"East Region" }, geometry:{ type:"Polygon", coordinates:[[
+      [103.9000,1.2900],[103.9300,1.3000],[103.9600,1.3200],[103.9900,1.3400],[103.9900,1.3700],
+      [103.9600,1.3500],[103.9300,1.3400],[103.9100,1.3200],[103.9000,1.2900]
+    ]]}},
+    { type:"Feature", properties:{ name:"West Region" }, geometry:{ type:"Polygon", coordinates:[[
+      [103.6000,1.2800],[103.6500,1.2700],[103.7500,1.2800],[103.7300,1.3100],[103.7500,1.3400],
+      [103.7800,1.3700],[103.7400,1.3700],[103.6800,1.3800],[103.6600,1.3900],[103.6200,1.3700],
+      [103.6000,1.3500],[103.5800,1.3200],[103.5900,1.3000],[103.6000,1.2800]
+    ]]}}
+  ]
+};
+
+// ─── State ────────────────────────────────────────────────
+let map, regionLayer;
+let activeRoad = null, activeLayer = null, activeItem = null;
+
+// ─── Init — called after Leaflet loads ────────────────────
+function initApp() {
+  map = L.map('map', {
+    center: [1.3521, 103.8198], zoom: 11,
+    zoomControl: true, attributionControl: false
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19, subdomains: 'abcd'
+  }).addTo(map);
+
+  map.on('mousemove', e => {
+    document.getElementById('status-coords').textContent =
+      e.latlng.lat.toFixed(4) + ', ' + e.latlng.lng.toFixed(4);
+  });
+
+  addRegionLayer();
+  buildSidebar();
+  bindUI();
+  setStatus('ok', 'Ready — select a road from the list.');
+}
+
+// ─── Region boundaries ────────────────────────────────────
+function addRegionLayer() {
+  regionLayer = L.geoJSON(REGION_GEOJSON, {
+    style: {
+      color: '#8a8078',
+      weight: 1.5,
+      opacity: 0.45,
+      fill: false,
+      dashArray: '6, 5'
+    }
+  }).addTo(map);
+
+  // Add subtle region name labels
+  SG_REGIONS.forEach(r => {
+    const icon = L.divIcon({
+      className: '',
+      html: '<div style="font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#9a9088;text-shadow:1px 1px 2px rgba(250,255,242,0.9),-1px -1px 2px rgba(250,255,242,0.9);white-space:nowrap;pointer-events:none">' + r.name + '</div>',
+      iconAnchor: [50, 8]
+    });
+    L.marker(r.latlng, { icon, interactive: false, keyboard: false }).addTo(map);
+  });
+}
+
+// ─── Sidebar ──────────────────────────────────────────────
+function buildSidebar() {
+  const list = document.getElementById('road-list');
+  list.innerHTML = '';
+
+  const cats = [
+    { key:'expressways', label:'Expressways', cls:'exp' },
+    { key:'major_roads', label:'Major roads',  cls:'maj' },
+    { key:'minor_roads', label:'Minor roads',  cls:'min' }
+  ];
+
+  cats.forEach(cat => {
+    const roads = ROADS[cat.key] || [];
+    const wrap  = document.createElement('div');
+    wrap.className = 'road-category';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'category-header ' + cat.cls;
+    hdr.innerHTML =
+      '<span class="category-label">' + cat.label + '</span>' +
+      '<span class="cat-right"><span class="category-count">' + roads.length + '</span>' +
+      '<span class="cat-chev open">▾</span></span>';
+
+    const body = document.createElement('div');
+    body.className = 'category-roads';
+
+    if (!roads.length) {
+      body.innerHTML = '<div class="empty-cat">Coming soon</div>';
+    } else {
+      roads.forEach(road => {
+        const item = document.createElement('div');
+        item.className = 'road-item';
+        item.innerHTML =
+          '<span class="road-dot" style="background:' + road.color + '"></span>' +
+          '<span class="road-badge" style="background:' + road.color + '">' + (road.short || road.id.toUpperCase()) + '</span>' +
+          '<span class="road-item-name">' + road.name + '</span>' +
+          '<span class="road-item-km">' + road.length_km + 'km</span>';
+        item.addEventListener('click', () => selectRoad(road, item, cat.key));
+        body.appendChild(item);
+      });
+    }
+
+    let open = true;
+    hdr.addEventListener('click', () => {
+      open = !open;
+      hdr.querySelector('.cat-chev').classList.toggle('open', open);
+      body.style.maxHeight = open ? body.scrollHeight + 'px' : '0';
+    });
+    body.style.maxHeight = '9999px';
+
+    wrap.appendChild(hdr); wrap.appendChild(body);
+    list.appendChild(wrap);
+  });
+}
+
+// ─── Select ───────────────────────────────────────────────
+function selectRoad(road, itemEl, catKey) {
+  if (activeItem) activeItem.classList.remove('is-active');
+  itemEl.classList.add('is-active');
+  activeItem = itemEl; activeRoad = road;
+  if (window.innerWidth <= 700) closeSidebar();
+  fetchRoadGeometry(road);
+  renderCard(road, catKey);
+}
+
+// ─── Overpass ─────────────────────────────────────────────
+const ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter'
+];
+
+async function tryOverpass(query) {
+  for (const ep of ENDPOINTS) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
+      const res = await fetch(ep + '?data=' + encodeURIComponent(query), { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data.elements && data.elements.length) return data;
+    } catch(e) { /* try next */ }
+  }
+  throw new Error('All Overpass endpoints unreachable. Please host on a web server (e.g. GitHub Pages) instead of opening locally.');
+}
+
+async function fetchRoadGeometry(road) {
+  if (activeLayer) { map.removeLayer(activeLayer); activeLayer = null; }
+  setStatus('loading', 'Fetching ' + (road.short || road.name) + '…');
+
+  const bbox = '(1.05,103.55,1.50,104.10)';
+  const parts = [];
+  if (road.osm_name) parts.push('  way["name"="' + road.osm_name + '"]' + bbox + ';');
+  if (road.osm_ref)  parts.push('  way["ref"="'  + road.osm_ref  + '"]' + bbox + ';');
+  const query = '[out:json][timeout:25];\n(\n' + parts.join('\n') + '\n);\nout geom;';
+
+  try {
+    const data = await tryOverpass(query);
+    activeLayer = L.geoJSON(waysToGeoJSON(data.elements), {
+      style: { color: road.color, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }
+    }).addTo(map);
+    const b = activeLayer.getBounds();
+    if (b.isValid()) map.fitBounds(b, { padding: [60, 60], maxZoom: 15, animate: true });
+    setStatus('ok', road.name + ' — ' + data.elements.length + ' segments rendered.');
+  } catch(err) {
+    setStatus('error', err.message);
+  }
+}
+
+function waysToGeoJSON(elements) {
+  return {
+    type: 'FeatureCollection',
+    features: elements
+      .filter(el => el.type === 'way' && el.geometry && el.geometry.length > 1)
+      .map(el => ({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: el.geometry.map(p => [p.lon, p.lat]) },
+        properties: {}
+      }))
+  };
+}
+
+// ─── Info card ────────────────────────────────────────────
+function renderCard(road, catKey) {
+  const catLabel = { expressways:'Expressway', major_roads:'Major road', minor_roads:'Minor road' }[catKey] || 'Road';
+
+  document.getElementById('card-stripe').style.background = road.color;
+  document.getElementById('card-ref').textContent   = road.short || road.id.toUpperCase();
+  document.getElementById('card-name').textContent  = road.name;
+  document.getElementById('meta-length').textContent = road.length_km ? road.length_km + ' km' : '—';
+  document.getElementById('meta-opened').textContent = road.opened   || '—';
+  document.getElementById('meta-cat').textContent    = catLabel;
+
+  const factsEl = document.getElementById('card-facts');
+  factsEl.innerHTML = '';
+  (road.facts || []).forEach(f => {
+    const d = document.createElement('div');
+    d.className = 'fact-item';
+    d.style.borderLeftColor = road.color;
+    d.textContent = f;
+    factsEl.appendChild(d);
+  });
+
+  const caption = buildCaption(road);
+  document.getElementById('caption-box').textContent = caption;
+
+  const btn = document.getElementById('btn-copy');
+  btn.style.background   = road.color;
+  btn.style.borderColor  = road.color;
+
+  document.getElementById('card-empty').style.display   = 'none';
+  document.getElementById('card-content').style.display = 'flex';
+
+  renderMobile(road, catKey, caption);
+}
+
+function buildCaption(road) {
+  return road.name + ' (' + (road.short || road.id.toUpperCase()) + ')\n\n' +
+    (road.facts || []).join('\n\n') +
+    '\n\n📍 Singapore\n\n' + (road.hashtags || '#Singapore #SingaporeRoads');
+}
+
+function renderMobile(road, catKey, caption) {
+  const catLabel = { expressways:'Expressway', major_roads:'Major road', minor_roads:'Minor road' }[catKey] || 'Road';
+  document.getElementById('mob-inner').innerHTML =
+    '<div style="height:6px;background:' + road.color + ';margin:0 -15px 13px;"></div>' +
+    '<div style="font-size:8.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:2px">' + (road.short||'') + ' · ' + catLabel + '</div>' +
+    '<div style="font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-bottom:12px;line-height:1">' + road.name + '</div>' +
+    (road.facts||[]).map(f =>
+      '<div style="font-size:11px;line-height:1.65;color:var(--ink-mid);border-left:4px solid ' + road.color + ';border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:7px;background:var(--surface2)">' + f + '</div>'
+    ).join('') +
+    '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:11px;font-size:10px;line-height:1.75;color:var(--ink-dim);white-space:pre-line;margin:12px 0">' + caption + '</div>' +
+    '<div style="display:flex;gap:7px;padding-bottom:2px">' +
+      '<button class="action-btn" style="flex:1;background:' + road.color + ';color:#fff;border-color:' + road.color + ';font-size:10px" onclick="copyCaption()">⊕ Copy</button>' +
+      '<button class="action-btn" style="flex:1;font-size:10px" onclick="exportMap()">↓ Export</button>' +
+    '</div>';
+  document.getElementById('mobile-drawer').classList.add('open');
+}
+
+// ─── Copy ─────────────────────────────────────────────────
+function copyCaption() {
+  if (!activeRoad) return;
+  navigator.clipboard.writeText(buildCaption(activeRoad)).then(() => {
+    const btn = document.getElementById('btn-copy');
+    if (btn) {
+      const origBg = btn.style.background, origBd = btn.style.borderColor, origTxt = btn.textContent;
+      btn.classList.add('copied'); btn.textContent = '✓ Copied!';
+      btn.style.background = ''; btn.style.borderColor = '';
+      setTimeout(() => { btn.classList.remove('copied'); btn.textContent = origTxt; btn.style.background = origBg; btn.style.borderColor = origBd; }, 2400);
+    }
+    setStatus('ok', 'Caption copied to clipboard.');
+  }).catch(() => setStatus('error', 'Clipboard access denied.'));
+}
+
+// ─── Export ───────────────────────────────────────────────
+function exportMap() {
+  if (!activeRoad) return;
+  setStatus('loading', 'Generating image…');
+  try {
+    leafletImage(map, (err, canvas) => {
+      if (err) { setStatus('error', 'Export failed.'); return; }
+      const a = document.createElement('a');
+      a.download = (activeRoad.short || activeRoad.id) + '_sg_roads.png';
+      a.href = canvas.toDataURL('image/png'); a.click();
+      setStatus('ok', 'Exported ' + a.download);
+    });
+  } catch { setStatus('error', 'Export unavailable — screenshot manually.'); }
+}
+
+// ─── Status ───────────────────────────────────────────────
+function setStatus(state, msg) {
+  document.getElementById('status-dot').className = state || '';
+  document.getElementById('status-text').textContent = msg;
+}
+
+// ─── Mobile sidebar ───────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('hamburger').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('active');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+
+// ─── UI bindings ──────────────────────────────────────────
+function bindUI() {
+  document.getElementById('hamburger').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+  });
+  document.getElementById('sidebar-overlay').addEventListener('click', closeSidebar);
+  document.getElementById('mob-handle').addEventListener('click', () => {
+    document.getElementById('mobile-drawer').classList.toggle('open');
+  });
+  document.getElementById('btn-copy').addEventListener('click', copyCaption);
+  document.getElementById('btn-export').addEventListener('click', exportMap);
+}
+</script>
+</body>
+</html>
