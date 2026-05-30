@@ -174,24 +174,40 @@
     .road-callout-wrap{display:inline-block;white-space:nowrap;pointer-events:none}
     .road-callout-inner{display:inline-block;padding:4px 10px;border-radius:6px;border:2px solid rgba(0,0,0,0.3);font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:-0.01em;white-space:nowrap;box-shadow:2.5px 2.5px 0 rgba(0,0,0,0.60)}
 
+    /* ── LAYERS FAB ── */
+    #layers-fab{
+      display:flex;align-items:center;gap:6px;
+      position:fixed;bottom:calc(var(--status-h)+12px);right:16px;
+      z-index:410;
+      background:var(--cream);border:2px solid var(--ink);
+      border-radius:9px;padding:7px 12px;
+      font-family:var(--font);font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+      color:var(--ink);cursor:pointer;
+      box-shadow:3px 3px 0 rgba(0,0,0,0.55);transition:all var(--t);
+    }
+    #layers-fab:hover{background:var(--ink);color:var(--cream)}
+    #layers-fab svg{flex-shrink:0;transition:inherit}
+    #layers-fab:hover svg{stroke:var(--cream)}
+
     /* ── LAYERS PANEL ── */
     #layers-panel{
       display:none;position:fixed;
-      bottom:calc(var(--status-h)+12px);left:16px;
-      width:200px;z-index:500;
+      bottom:calc(var(--status-h)+52px);right:16px;
+      width:210px;z-index:500;
       background:var(--cream);border:2.5px solid var(--ink);
       border-radius:var(--radius);box-shadow:var(--shadow);
-      padding:10px 0 8px;
+      padding:10px 0 10px;
     }
     #layers-panel.open{display:block}
-    #layers-panel-header{display:flex;align-items:center;justify-content:space-between;padding:0 12px 8px;border-bottom:1.5px solid var(--border);margin-bottom:4px}
-    #layers-panel-close{background:none;border:none;cursor:pointer;font-size:12px;color:var(--ink-ghost);padding:2px 4px;border-radius:4px}
+    #layers-panel-header{display:flex;align-items:center;justify-content:space-between;padding:0 12px 8px;border-bottom:1.5px solid var(--border);margin-bottom:6px}
+    .lp-title{font-size:10px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink)}
+    #layers-panel-close{background:none;border:none;cursor:pointer;font-size:12px;color:var(--ink-ghost);padding:2px 5px;border-radius:4px;line-height:1}
     #layers-panel-close:hover{background:var(--surf2);color:var(--ink)}
-    .lp-row{display:flex;align-items:center;padding:5px 12px}
-    .lp-label{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;color:var(--ink-mid);cursor:pointer;user-select:none}
+    .lp-row{display:flex;align-items:center;padding:4px 12px}
+    .lp-label{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:600;color:var(--ink-mid);cursor:pointer;user-select:none}
     .lp-label input[type=checkbox]{accent-color:var(--ink);width:13px;height:13px;cursor:pointer;flex-shrink:0}
-    .lp-divider{height:1px;background:var(--border);margin:6px 0}
-    .lp-section-title{font-size:7.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-ghost);padding:0 12px 5px}
+    .lp-divider{height:1px;background:var(--border);margin:7px 0}
+    .lp-section-title{font-size:7.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-ghost);padding:0 12px 4px}
     .lp-style-row{gap:5px}
     .style-btn{padding:4px 9px;font-family:var(--font);font-size:8px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;border:1.5px solid var(--ink);border-radius:6px;background:var(--surf2);color:var(--ink);cursor:pointer;transition:all var(--t)}
     .style-btn.active{background:var(--ink);color:var(--cream)}
@@ -217,9 +233,6 @@
     <div id="sidebar-header">
       <div class="logo">Singapore<br>Cartography</div>
       <div class="tagline">Road atlas</div>
-      <button id="layers-panel-btn" class="label-btn" style="margin-top:9px">
-        <span style="font-size:10px">⊞</span> Layers
-      </button>
     </div>
     <div id="road-list"></div>
   </nav>
@@ -278,14 +291,24 @@
     </div>
     <div id="mob-inner"></div>
   </div>
+  <!-- Standalone Layers FAB -->
+  <button id="layers-fab" title="Layers">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 4.5L7 8L1 4.5L7 1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M1 7L7 10.5L13 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10.5L7 14L13 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Layers
+  </button>
+
   <!-- Layers panel -->
   <div id="layers-panel">
     <div id="layers-panel-header">
-      <span style="font-size:10px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase">Layers</span>
+      <span class="lp-title">Layers</span>
       <button id="layers-panel-close">✕</button>
     </div>
-    <div class="lp-row"><label class="lp-label"><input type="checkbox" id="lp-road-labels"> Road labels</label></div>
-    <div class="lp-row"><label class="lp-label"><input type="checkbox" id="lp-region-labels"> Region labels</label></div>
+    <div class="lp-section-title">Labels</div>
+    <div class="lp-row"><label class="lp-label"><input type="checkbox" id="lp-road-labels" checked> Road labels</label></div>
+    <div class="lp-row"><label class="lp-label"><input type="checkbox" id="lp-connected-regions" checked> Connected region labels</label></div>
+    <div class="lp-row"><label class="lp-label"><input type="checkbox" id="lp-all-regions"> All region labels</label></div>
+    <div class="lp-divider"></div>
+    <div class="lp-section-title">Overlays</div>
     <div class="lp-row"><label class="lp-label"><input type="checkbox" id="lp-boundaries" checked> Region boundaries</label></div>
     <div class="lp-divider"></div>
     <div class="lp-section-title">Map style</div>
@@ -368,8 +391,9 @@ function textColor(hex){
 let map;
 let tileLayer, boundaryLayer;
 const roadState={};
-let roadLabelsVisible=false;
-let regionLabelsVisible=false;
+let roadLabelsVisible=true;          // default ON
+let connectedRegionsVisible=true;    // default ON — labels for road's regions
+let allRegionsVisible=false;         // default OFF — all other region labels
 let areaMarkers=[];
 let areaLayers=[];
 let areaMarkerMap={};
@@ -506,20 +530,27 @@ function initApp(){
     });
   })();
   document.getElementById('btn-road-labels') && document.getElementById('btn-road-labels').addEventListener('click',toggleRoadLabels);
-  document.getElementById('btn-region-labels') && document.getElementById('btn-region-labels').addEventListener('click',toggleRegionLabels);
 
-  // ── Layers panel ──
-  document.getElementById('layers-panel-btn').addEventListener('click',function(){
+  // ── Layers FAB + panel ──
+  document.getElementById('layers-fab').addEventListener('click',function(){
     document.getElementById('layers-panel').classList.toggle('open');
   });
   document.getElementById('layers-panel-close').addEventListener('click',function(){
     document.getElementById('layers-panel').classList.remove('open');
   });
+  // Sync checkboxes to initial state
+  document.getElementById('lp-road-labels').checked=roadLabelsVisible;
+  document.getElementById('lp-connected-regions').checked=connectedRegionsVisible;
+  document.getElementById('lp-all-regions').checked=allRegionsVisible;
+
   document.getElementById('lp-road-labels').addEventListener('change',function(){
     roadLabelsVisible=this.checked; applyRoadLabels();
   });
-  document.getElementById('lp-region-labels').addEventListener('change',function(){
-    regionLabelsVisible=this.checked; applyRegionLabels();
+  document.getElementById('lp-connected-regions').addEventListener('change',function(){
+    connectedRegionsVisible=this.checked; applyRegionLabels();
+  });
+  document.getElementById('lp-all-regions').addEventListener('change',function(){
+    allRegionsVisible=this.checked; applyRegionLabels();
   });
   document.getElementById('lp-boundaries').addEventListener('change',function(){
     if(this.checked){ boundaryLayer.addTo(map); } else { map.removeLayer(boundaryLayer); }
@@ -535,52 +566,43 @@ function applyRoadLabels(){
     else { map.removeLayer(s.callout); }
   });
 }
+
 function applyRegionLabels(){
-  if(regionLabelsVisible){
-    areaMarkers.forEach(function(m){ m.addTo(map); });
-    if(activeRoad){
-      (AREA_MAP[activeRoad.short]||[]).forEach(function(name){
-        var m=areaMarkerMap[name];
-        if(m&&m.getElement()) m.getElement().classList.add('active-area');
-      });
+  var connectedSet={};
+  if(activeRoad) (AREA_MAP[activeRoad.short]||[]).forEach(function(n){ connectedSet[n]=true; });
+
+  areaMarkers.forEach(function(m){
+    var name=m.options.icon.options.html; // the region name
+    var isConnected=connectedSet[name];
+    var shouldShow=(isConnected && connectedRegionsVisible) || (!isConnected && allRegionsVisible);
+    if(shouldShow){ m.addTo(map); }
+    else { map.removeLayer(m); }
+    // styling
+    var el=m.getElement();
+    if(el){
+      el.classList.toggle('active-area', isConnected && connectedRegionsVisible);
     }
-  } else {
-    areaMarkers.forEach(function(m){ map.removeLayer(m); });
-  }
+  });
 }
-// Keep old names as aliases for any remaining call sites
+
+// Legacy aliases
 function toggleRoadLabels(){ roadLabelsVisible=!roadLabelsVisible; applyRoadLabels(); }
-function toggleRegionLabels(){ regionLabelsVisible=!regionLabelsVisible; applyRegionLabels(); }
+function toggleRegionLabels(){ connectedRegionsVisible=!connectedRegionsVisible; applyRegionLabels(); }
 
 // ── AREA HIGHLIGHT for active road ──
 function highlightAreas(road){
-  // Remove previous highlights
   areaLayers.forEach(function(l){ map.removeLayer(l); }); areaLayers=[];
-  // Reset all label colours
-  areaMarkers.forEach(function(m){ m.getElement()&&m.getElement().classList.remove('active-area'); });
-
-  if(!road) return;
-  var activeAreas=AREA_MAP[road.short]||[];
+  if(!road){ applyRegionLabels(); return; }
   var activeSet={};
-  activeAreas.forEach(function(a){ activeSet[a]=true; });
-
-  // Add thick boundary outlines for active areas
+  (AREA_MAP[road.short]||[]).forEach(function(a){ activeSet[a]=true; });
   SG_BOUNDARIES.features.forEach(function(f){
-    var name=f.properties.n;
-    if(!activeSet[name]) return;
+    if(!activeSet[f.properties.n]) return;
     var hl=L.geoJSON(f,{
-      style:{color:'#E8A021',weight:3.5,opacity:0.9,fill:true,fillColor:'#E8A021',fillOpacity:0.08,dashArray:null}
+      style:{color:'#0a0a0a',weight:1.8,opacity:0.7,fill:true,fillColor:'#0a0a0a',fillOpacity:0.04,dashArray:'2 4'}
     }).addTo(map);
     areaLayers.push(hl);
   });
-
-  // Colour active area labels
-  if(regionLabelsVisible){
-    activeAreas.forEach(function(name){
-      var m=areaMarkerMap[name];
-      if(m&&m.getElement()) m.getElement().classList.add('active-area');
-    });
-  }
+  applyRegionLabels();
 }
 
 // ── SIDEBAR ──
@@ -640,12 +662,18 @@ function buildRoadLayer(road){
   var callout=L.marker([clat,clng],{
     icon:L.divIcon({
       className:'road-callout-wrap',
-      html:'<span class="road-callout-inner" style="background:'+road.color+';color:'+tc+'">'+road.short+'</span>',
+      html:'<span class="road-callout-inner" style="background:'+road.color+';color:'+tc+';cursor:pointer">'+road.short+'</span>',
       iconSize:null,
       iconAnchor:null
     }),
-    interactive:false,
+    interactive:true,
     zIndexOffset:500
+  });
+  callout.on('click',function(){
+    // Find the sidebar item for this road and select it
+    var chk=document.querySelector('[data-id="'+road.id+'"]');
+    var item=chk?chk.closest('.road-item'):null;
+    if(item) selectRoad(road,item);
   });
 
   // Start: layer hidden, callout hidden
